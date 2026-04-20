@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Build output
+.next/
+dist/
+build/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Storage
+uploads/
+faiss_indexes/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+celerybeat-schedule
+
+# Python
+*.egg-info/
+.pytest_cache/
+htmlcov/
+.coverage

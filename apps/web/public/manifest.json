@@ -1,0 +1,26 @@
+{
+  "name": "RasoRead",
+  "short_name": "RasoRead",
+  "description": "AI-powered audio reading platform",
+  "start_url": "/library",
+  "display": "standalone",
+  "background_color": "#0b1326",
+  "theme_color": "#0b1326",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "categories": ["books", "education", "productivity"]
+}

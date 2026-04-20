@@ -1,0 +1,142 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400;1,6..72,700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-surface text-[#dae2fd] font-body antialiased;
+    min-height: 100dvh;
+  }
+
+  * {
+    @apply box-border;
+  }
+
+  ::selection {
+    background: rgba(195, 192, 255, 0.3);
+    color: #e2dfff;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #454652;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #908f9d;
+  }
+}
+
+@layer components {
+  .glass {
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+  }
+
+  .text-gradient {
+    background: linear-gradient(135deg, #c3c0ff 0%, #8d8aff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .btn-primary {
+    @apply bg-primary text-[#0f0069] font-label font-bold px-6 py-3 rounded-xl
+           hover:opacity-90 active:scale-95 transition-all duration-150;
+  }
+
+  .btn-ghost {
+    @apply border border-outline-variant/30 text-primary font-label
+           px-6 py-3 rounded-xl hover:bg-primary/5 active:scale-95
+           transition-all duration-150;
+  }
+
+  /* TTS word highlight */
+  .word-token {
+    @apply rounded-sm transition-all duration-100 cursor-pointer;
+    padding: 1px 2px;
+  }
+
+  .word-token:hover {
+    background: rgba(195, 192, 255, 0.1);
+  }
+
+  .word-token.active {
+    background: rgba(195, 192, 255, 0.25);
+    color: #e2dfff;
+    border-radius: 3px;
+  }
+
+  .word-token.spoken {
+    color: #908f9d;
+  }
+
+  /* Highlight colors */
+  .highlight-primary {
+    background: rgba(195, 192, 255, 0.2);
+    border-bottom: 2px solid rgba(195, 192, 255, 0.6);
+  }
+
+  .highlight-yellow {
+    background: rgba(239, 159, 39, 0.2);
+    border-bottom: 2px solid rgba(239, 159, 39, 0.6);
+  }
+
+  .highlight-green {
+    background: rgba(29, 158, 117, 0.2);
+    border-bottom: 2px solid rgba(29, 158, 117, 0.5);
+  }
+
+  .highlight-red {
+    background: rgba(226, 75, 74, 0.2);
+    border-bottom: 2px solid rgba(226, 75, 74, 0.5);
+  }
+
+  /* Focus mode */
+  .focus-mode .shell-hide {
+    @apply opacity-0 pointer-events-none;
+  }
+
+  /* Reader typography */
+  .reader-text {
+    @apply font-body text-xl leading-[1.9] text-[#dae2fd]/90;
+    letter-spacing: 0.01em;
+  }
+
+  .reader-heading {
+    @apply font-headline text-3xl font-semibold text-[#dae2fd] mb-6 mt-10 leading-tight;
+  }
+
+  /* Dyslexia mode */
+  .dyslexia-mode .reader-text,
+  .dyslexia-mode .word-token {
+    font-family: "OpenDyslexic", "Comic Sans MS", sans-serif !important;
+    letter-spacing: 0.05em;
+    word-spacing: 0.1em;
+    line-height: 2.2 !important;
+  }
+
+  /* Sepia mode */
+  .sepia-mode {
+    filter: sepia(30%);
+  }
+}
