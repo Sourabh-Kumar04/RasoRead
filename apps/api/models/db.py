@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from sqlalchemy import (
-    String, Text, Integer, Float, Boolean, DateTime,
+    String, Text, Integer, Float, Boolean, DateTime, LargeBinary,
     ForeignKey, JSON, Enum as SAEnum
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -35,7 +35,8 @@ class Book(Base):
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     author: Mapped[str] = mapped_column(String(255), nullable=True)
     file_type: Mapped[str] = mapped_column(String(10), nullable=False)
-    s3_key: Mapped[str] = mapped_column(Text, nullable=False)
+    s3_key: Mapped[str] = mapped_column(Text, nullable=True)   # None when using DB storage
+    file_data: Mapped[bytes] = mapped_column(LargeBinary, nullable=True)  # raw bytes when STORAGE_BACKEND=db
     cover_url: Mapped[str] = mapped_column(Text, nullable=True)
     total_pages: Mapped[int] = mapped_column(Integer, default=0)
     total_words: Mapped[int] = mapped_column(Integer, default=0)
@@ -124,5 +125,5 @@ class AnalyticsEvent(Base):
     user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), index=True)
     book_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("books.id", ondelete="CASCADE"), nullable=True)
     event_type: Mapped[str] = mapped_column(String(50))
-    metadata: Mapped[dict] = mapped_column(JSON, default=dict)
+    event_metadata: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc, index=True)

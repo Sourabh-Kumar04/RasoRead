@@ -75,6 +75,8 @@ export const booksApi = {
 export const readerApi = {
   getPage: (bookId: string, page: number) =>
     api.get(`/reader/${bookId}/text`, { params: { page } }),
+  getPageImage: (bookId: string, page: number) =>
+    api.get(`/reader/${bookId}/page-image`, { params: { page } }),
   getProgress: (bookId: string) => api.get(`/reader/${bookId}/progress`),
   saveProgress: (
     bookId: string,

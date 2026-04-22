@@ -56,6 +56,6 @@ export const offlineCache = {
       k === `${PREFIX}book:${bookId}` ||
       k === `${PREFIX}progress:${bookId}`
     );
-    await Promise.all(bookKeys.map(del));
+    await Promise.all(bookKeys.map((k) => del(k)));
   },
 };

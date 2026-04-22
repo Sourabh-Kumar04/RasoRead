@@ -81,13 +81,22 @@
   }
 
   .word-token.active {
-    background: rgba(195, 192, 255, 0.25);
+    background: rgba(195, 192, 255, 0.2);
     color: #e2dfff;
     border-radius: 3px;
   }
 
+  /* Active word inside a TTS sentence band */
+  .word-token.tts-active-word {
+    background: rgba(52, 211, 153, 0.45);
+    color: #6ee7b7;
+    border-radius: 3px;
+    font-weight: 600;
+    padding: 1px 3px;
+  }
+
   .word-token.spoken {
-    color: #908f9d;
+    color: #64748b;
   }
 
   /* Highlight colors */

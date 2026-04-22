@@ -90,7 +90,7 @@ async def log_event(
         user_id=current_user.id,
         book_id=body.get("book_id"),
         event_type=body.get("event_type", "unknown"),
-        metadata=body.get("metadata", {}),
+        event_metadata=body.get("metadata", {}),
     )
     db.add(event)
     return {"ok": True}

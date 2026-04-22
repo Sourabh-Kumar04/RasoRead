@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { readerApi } from "@/lib/api";
+import { readerApi, notesApi } from "@/lib/api";
 import { offlineCache } from "@/lib/indexeddb";
 import { useReaderStore } from "@/stores/readerStore";
 
@@ -85,8 +85,16 @@ export function useReadingSession(bookId: string) {
   useEffect(() => {
     const handleOnline = async () => {
       const queue = await offlineCache.flushHighlightQueue();
-      // Re-submit queued highlights
-      // (import notesApi here if needed)
+      // Re-submit queued highlights to the API
+      for (const highlight of queue) {
+        try {
+          await notesApi.createHighlight(highlight as any);
+        } catch (err) {
+          console.error("Failed to sync highlight:", err);
+          // Re-queue if failed
+          await offlineCache.queueHighlight(highlight);
+        }
+      }
     };
     window.addEventListener("online", handleOnline);
     return () => window.removeEventListener("online", handleOnline);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
 import { BookOpen } from "lucide-react";
@@ -15,11 +15,13 @@ import { useOfflineSync } from "@/hooks/useOfflineSync";
 
 import { DocumentViewer } from "@/components/reader/DocumentViewer";
 import { FloatingControls } from "@/components/reader/FloatingControls";
+import { KaraokeBar } from "@/components/reader/KaraokeBar";
 import { SmartPanel } from "@/components/reader/SmartPanel";
 import { ReaderTopBar } from "@/components/reader/ReaderTopBar";
 import { TOCDrawer } from "@/components/reader/TOCDrawer";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { toast } from "@/components/ui/Toast";
+import { useTTSSync } from "@/hooks/useTTSSync";
 
 type BookStatus = "processing" | "ready" | "error" | "unknown";
 
@@ -31,6 +33,15 @@ export default function ReaderPage() {
   const store = useReaderStore();
   const { loadProgress, saveProgress, loadPage } = useReadingSession(bookId);
   useOfflineSync(bookId);
+
+  // ── Stable ref so useTTSSync's onPageEnd always calls the latest goToPage ──
+  const goToPageRef = useRef<(page: number) => void>(() => {});
+
+  // ── Single TTS instance for the entire reader page ──────────────────────────
+  // IMPORTANT: useTTSSync must only be instantiated ONCE. Having it in both
+  // FloatingControls and DocumentViewer causes two separate audio contexts,
+  // conflicting session refs, and broken auto-continue.
+  const tts = useTTSSync({ onPageEnd: () => goToPageRef.current(store.currentPage + 1) });
 
   const [voices, setVoices] = useState<{ id: string; name: string }[]>([]);
   const [showTOC, setShowTOC] = useState(false);
@@ -117,6 +128,9 @@ export default function ReaderPage() {
     },
     [store, loadPage]
   );
+
+  // Keep the ref in sync so the TTS onPageEnd closure always has the latest version
+  useEffect(() => { goToPageRef.current = goToPage; }, [goToPage]);
 
   const nextPage = useCallback(
     () => goToPage(store.currentPage + 1),
@@ -211,12 +225,12 @@ export default function ReaderPage() {
       {/* Reader content */}
       <main
         className={cn(
-          "pt-20 pb-44 transition-all duration-300",
+          "pt-20 pb-56 transition-all duration-300",
           store.showSmartPanel ? "md:mr-80" : ""
         )}
       >
         <ErrorBoundary>
-          <DocumentViewer bookId={bookId} />
+          <DocumentViewer bookId={bookId} tts={tts} />
         </ErrorBoundary>
       </main>
 
@@ -232,9 +246,13 @@ export default function ReaderPage() {
         {store.showSmartPanel && <SmartPanel bookId={bookId} />}
       </AnimatePresence>
 
+      {/* Karaoke bar — appears above floating controls during playback */}
+      <KaraokeBar />
+
       {/* Floating playback controls */}
       <FloatingControls
         bookId={bookId}
+        tts={tts}
         onNextPage={nextPage}
         onPrevPage={prevPage}
         voices={voices}

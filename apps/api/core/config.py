@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
     # Storage
-    STORAGE_BACKEND: str = "local"   # local | s3
+    STORAGE_BACKEND: str = "db"   # db | local | s3
     LOCAL_STORAGE_PATH: str = "./uploads"
     AWS_S3_BUCKET: str = ""
     AWS_REGION: str = "us-east-1"
@@ -72,3 +72,14 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# Guard against insecure defaults in production
+if settings.ENVIRONMENT == "production":
+    assert settings.JWT_SECRET != "change-me", (
+        "JWT_SECRET must be changed from the default value in production. "
+        "Set a strong random secret in your .env file."
+    )
+    assert settings.STORAGE_BACKEND != "db", (
+        "STORAGE_BACKEND=db is not recommended for production. "
+        "Use 'local' or 's3' instead to avoid storing large files in PostgreSQL."
+    )

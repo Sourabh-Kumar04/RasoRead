@@ -15,6 +15,7 @@ pydantic-settings==2.2.1
 # ── Auth ──────────────────────────────────────────────────────────────────────
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+bcrypt==4.0.1          # passlib 1.7.4 is incompatible with bcrypt>=5 (72-byte limit check fails)
 python-multipart==0.0.9
 
 # ── Task queue ────────────────────────────────────────────────────────────────
@@ -42,6 +43,9 @@ httpx==0.27.0
 # Google Gemini (DEFAULT provider)
 google-generativeai>=0.5.2,<0.6.0
 google-cloud-texttospeech==2.17.0
+
+# Edge TTS (Free Microsoft realistic neural TTS)
+edge-tts==7.2.8
 
 # Groq (ultra-fast open-source inference)
 groq==0.9.0

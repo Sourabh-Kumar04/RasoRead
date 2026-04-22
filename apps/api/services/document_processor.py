@@ -264,7 +264,7 @@ def process_book_task(self, book_id: str, s3_key: str, file_type: str):
 
     async def _run():
         storage = StorageService()
-        file_bytes = await storage.download(s3_key)
+        file_bytes = await storage.download(s3_key, book_id=book_id)
         result = process_document(file_bytes, file_type)
 
         # Index for RAG

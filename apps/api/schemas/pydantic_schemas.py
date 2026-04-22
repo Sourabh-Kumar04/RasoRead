@@ -66,7 +66,7 @@ class ProgressOut(BaseModel):
     completion_pct: float
     tts_speed: float
     voice_id: str
-    last_read_at: datetime
+    last_read_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

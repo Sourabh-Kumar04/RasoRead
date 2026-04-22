@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { Trash2, Play, CheckCircle, Loader2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Trash2, Play, CheckCircle, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { booksApi } from "@/lib/api";
 
@@ -40,9 +40,65 @@ const COVER_GRADIENTS = [
   "from-slate-800/80 to-slate-900/80",
 ];
 
+function DeleteConfirmModal({
+  title,
+  onConfirm,
+  onCancel,
+}: {
+  title: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={onCancel}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        transition={{ duration: 0.15 }}
+        className="bg-surface-high border border-outline-variant/20 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center flex-shrink-0">
+            <AlertTriangle size={18} className="text-red-400" />
+          </div>
+          <div>
+            <p className="font-label font-semibold text-[#dae2fd]">Delete book?</p>
+            <p className="font-label text-sm text-outline mt-0.5 line-clamp-1">"{title}"</p>
+          </div>
+        </div>
+        <p className="font-label text-sm text-outline mb-5">
+          This will permanently remove the book and all your highlights, notes, and progress.
+        </p>
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-2 rounded-xl border border-outline-variant/30 font-label text-sm
+                       text-outline hover:bg-surface-highest/40 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 py-2 rounded-xl bg-red-500/80 hover:bg-red-500 font-label text-sm
+                       text-white transition-colors"
+          >
+            Delete
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 export function BookCard({ book, progress, onDelete }: BookCardProps) {
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const gradient = COVER_GRADIENTS[book.title.charCodeAt(0) % COVER_GRADIENTS.length];
   const isReady = book.status === "ready";
@@ -54,9 +110,13 @@ export function BookCard({ book, progress, onDelete }: BookCardProps) {
     router.push(`/reader/${book.id}`);
   };
 
-  const handleDelete = async (e: React.MouseEvent) => {
+  const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm(`Delete "${book.title}"?`)) return;
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    setShowDeleteModal(false);
     setDeleting(true);
     try {
       await booksApi.delete(book.id);
@@ -75,6 +135,16 @@ export function BookCard({ book, progress, onDelete }: BookCardProps) {
       className="group cursor-pointer"
       onClick={handleOpen}
     >
+      <AnimatePresence>
+        {showDeleteModal && (
+          <DeleteConfirmModal
+            title={book.title}
+            onConfirm={handleDeleteConfirm}
+            onCancel={() => setShowDeleteModal(false)}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Cover */}
       <div className="aspect-[3/4] mb-3 rounded-xl overflow-hidden relative bg-surface-high shadow-lg">
         {book.cover_url ? (
@@ -130,7 +200,7 @@ export function BookCard({ book, progress, onDelete }: BookCardProps) {
 
         {/* Delete button */}
         <button
-          onClick={handleDelete}
+          onClick={handleDeleteClick}
           disabled={deleting}
           className="absolute top-2 left-2 p-1.5 rounded-lg bg-black/60 opacity-0
                      group-hover:opacity-100 hover:bg-red-500/80 transition-all"

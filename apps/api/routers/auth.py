@@ -25,6 +25,8 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     user = User(email=body.email, name=body.name, password=hash_password(body.password))
     db.add(user)
     await db.flush()
+    await db.commit()
+    await db.refresh(user)
     return TokenResponse(
         access_token=create_access_token(user.id),
         refresh_token=create_refresh_token(user.id),

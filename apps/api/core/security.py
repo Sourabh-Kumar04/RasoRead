@@ -1,3 +1,5 @@
+import hashlib
+import base64
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from jose import JWTError, jwt
@@ -15,12 +17,23 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 bearer = HTTPBearer()
 
 
+def _prehash(password: str) -> str:
+    """SHA-256 pre-hash so bcrypt always receives ≤44 ASCII bytes.
+
+    bcrypt silently truncates inputs > 72 bytes (or raises ValueError in
+    some passlib builds). By pre-hashing we preserve full entropy regardless
+    of password length.
+    """
+    digest = hashlib.sha256(password.encode("utf-8")).digest()
+    return base64.b64encode(digest).decode("ascii")  # always 44 chars
+
+
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return pwd_context.hash(_prehash(password))
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    return pwd_context.verify(_prehash(plain), hashed)
 
 
 def create_access_token(user_id: str) -> str:

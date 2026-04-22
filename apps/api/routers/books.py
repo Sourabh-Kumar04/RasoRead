@@ -28,11 +28,15 @@ FILE_TYPE_MAP = {
 async def list_books(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    skip: int = 0,
+    limit: int = 50,
 ):
     result = await db.execute(
         select(Book)
         .where(Book.user_id == current_user.id)
         .order_by(Book.created_at.desc())
+        .offset(skip)
+        .limit(limit)
     )
     return result.scalars().all()
 
@@ -66,7 +70,7 @@ async def upload_book(
 
     file_type = FILE_TYPE_MAP[detected_mime]
 
-    # Upload to storage
+    # Upload to storage (returns key; for 'db' backend, bytes go into file_data below)
     s3_key = await storage.upload(content, file.filename or "upload", detected_mime)
 
     # Extract cover synchronously (fast, <1s)
@@ -89,13 +93,15 @@ async def upload_book(
         s3_key=s3_key,
         cover_url=cover_b64,
         status="processing",
+        # Store raw bytes directly in DB when using db backend
+        file_data=content if settings.STORAGE_BACKEND == "db" else None,
     )
     db.add(book)
     await db.flush()
 
     logger.info("Book uploaded: %s (%s) by user %s", book.id, file_type, current_user.id)
 
-    # Kick off async processing task
+    # Kick off async processing task — pass book_id so worker can fetch bytes from DB
     process_book_task.delay(book.id, s3_key, file_type)
 
     return book

@@ -8,8 +8,21 @@ import { cn } from "@/lib/utils";
 import { booksApi } from "@/lib/api";
 import { toast } from "@/components/ui/Toast";
 
+interface BookOut {
+  id: string;
+  title: string;
+  author?: string;
+  file_type: string;
+  cover_url?: string;
+  total_pages: number;
+  total_words: number;
+  toc: unknown[];
+  status: string;
+  created_at: string;
+}
+
 interface UploadDropzoneProps {
-  onUploadSuccess: (book: any) => void;
+  onUploadSuccess: (book: BookOut) => void;
 }
 
 const ACCEPTED = {

@@ -1,6 +1,6 @@
 """
-Storage service — abstracts local filesystem vs AWS S3.
-Switch via STORAGE_BACKEND env var.
+Storage service — abstracts local filesystem vs AWS S3 vs Postgres DB.
+Switch via STORAGE_BACKEND env var: local | s3 | db
 """
 import os
 import uuid
@@ -32,11 +32,17 @@ class StorageService:
         ext = Path(filename).suffix
         key = f"books/{uuid.uuid4()}{ext}"
 
-        if self.backend == "local":
+        if self.backend == "db":
+            # For DB backend: caller must persist file_bytes to Book.file_data.
+            # We return a placeholder key; actual bytes stored via save_to_book().
+            return f"db:{key}"
+
+        elif self.backend == "local":
             file_path = self.base_path / key
             file_path.parent.mkdir(parents=True, exist_ok=True)
             async with aiofiles.open(file_path, "wb") as f:
                 await f.write(file_bytes)
+
         elif self.backend == "s3":
             import asyncio
             await asyncio.get_event_loop().run_in_executor(
@@ -50,12 +56,27 @@ class StorageService:
             )
         return key
 
-    async def download(self, key: str) -> bytes:
+    async def download(self, key: str, book_id: Optional[str] = None) -> bytes:
         """Download file bytes by key."""
-        if self.backend == "local":
+        if self.backend == "db" or (key and key.startswith("db:")):
+            # Fetch raw bytes from Postgres
+            if not book_id:
+                raise ValueError("book_id required for DB storage backend")
+            from core.database import AsyncSessionLocal
+            from models.db import Book
+            from sqlalchemy import select
+            async with AsyncSessionLocal() as session:
+                result = await session.execute(select(Book).where(Book.id == book_id))
+                book = result.scalar_one_or_none()
+                if not book or not book.file_data:
+                    raise FileNotFoundError(f"No file_data in DB for book {book_id}")
+                return book.file_data
+
+        elif self.backend == "local":
             file_path = self.base_path / key
             async with aiofiles.open(file_path, "rb") as f:
                 return await f.read()
+
         elif self.backend == "s3":
             import asyncio
             response = await asyncio.get_event_loop().run_in_executor(
@@ -66,7 +87,9 @@ class StorageService:
 
     def get_url(self, key: str, expires: int = 3600) -> str:
         """Get a temporary public URL for the file."""
-        if self.backend == "local":
+        if self.backend == "db" or (key and key.startswith("db:")):
+            return None   # No direct file URL for DB-stored books
+        elif self.backend == "local":
             return f"/static/{key}"
         elif self.backend == "s3":
             return self.s3.generate_presigned_url(
@@ -75,12 +98,17 @@ class StorageService:
                 ExpiresIn=expires,
             )
 
-    async def delete(self, key: str):
+    async def delete(self, key: str, book_id: Optional[str] = None):
         """Delete a file from storage."""
-        if self.backend == "local":
+        if self.backend == "db" or (key and key.startswith("db:")):
+            # File bytes are stored in Book.file_data — deleted via CASCADE on Book deletion
+            return
+
+        elif self.backend == "local":
             file_path = self.base_path / key
             if file_path.exists():
                 file_path.unlink()
+
         elif self.backend == "s3":
             import asyncio
             await asyncio.get_event_loop().run_in_executor(

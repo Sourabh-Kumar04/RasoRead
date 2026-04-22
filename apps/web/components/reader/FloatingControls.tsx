@@ -12,6 +12,7 @@ import { useTTSSync } from "@/hooks/useTTSSync";
 
 interface FloatingControlsProps {
   bookId: string;
+  tts: ReturnType<typeof useTTSSync>;
   onNextPage: () => void;
   onPrevPage: () => void;
   voices: { id: string; name: string }[];
@@ -21,12 +22,13 @@ const SPEEDS = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0];
 
 export function FloatingControls({
   bookId,
+  tts,
   onNextPage,
   onPrevPage,
   voices,
 }: FloatingControlsProps) {
   const store = useReaderStore();
-  const { pause, resume, stop, seek } = useTTSSync();
+  const { play, pause, resume, stop, seek } = tts;
   const [showSettings, setShowSettings] = useState(false);
   const [speedIdx, setSpeedIdx] = useState(SPEEDS.indexOf(store.ttsSpeed) || 2);
 
@@ -35,6 +37,13 @@ export function FloatingControls({
       pause();
     } else if (store.isPaused) {
       resume();
+    } else {
+      // Find the first paragraph with text and use its real index
+      const paragraphs = store.pageData?.paragraphs ?? [];
+      const firstIdx   = paragraphs.findIndex((p) => p.text.trim());
+      if (firstIdx !== -1) {
+        play(paragraphs[firstIdx].text, firstIdx);
+      }
     }
   };
 

@@ -181,60 +181,53 @@ async def _stream_tts_gemini_genai(
     text: str, voice_id: str, speed: float
 ) -> AsyncGenerator[str, None]:
     """
-    Gemini TTS via google-generativeai SDK (Gemini 2.5 Flash TTS preview).
-    Fallback when google-cloud-texttospeech is unavailable.
+    Fallback using EDGE-TTS (Microsoft Azure Cognitive) which is totally free,
+    does not hit API limits, and produces ultra realistic audio seamlessly.
     """
     try:
-        import google.generativeai as genai
-        genai.configure(api_key=settings.GEMINI_API_KEY)
+        import edge_tts
+        import base64
+        import json
 
-        # Use Gemini 2.5 Flash TTS preview model
-        tts_model = genai.GenerativeModel("gemini-2.5-flash-preview-tts")
-
-        # Map voice_id to Gemini voice name (use Aoede as a good default)
-        gemini_voice_map = {
-            "en-US-Journey-F": "Aoede",
-            "en-US-Journey-D": "Charon",
-            "en-US-Studio-O":  "Kore",
-            "en-US-Studio-Q":  "Fenrir",
-            "en-GB-Journey-F": "Aoede",
-            "en-GB-Journey-D": "Charon",
-            "en-AU-Journey-F": "Puck",
-            "en-IN-Journey-F": "Leda",
+        # Edge TTS voices (using popular natural voices)
+        voice_map = {
+            "en-US-Journey-F": "en-US-AriaNeural",
+            "en-US-Journey-D": "en-US-ChristopherNeural",
+            "en-US-Studio-O":  "en-US-JennyNeural",
+            "en-US-Studio-Q":  "en-US-GuyNeural",
+            "en-GB-Journey-F": "en-GB-SoniaNeural",
+            "en-GB-Journey-D": "en-GB-RyanNeural",
+            "en-AU-Journey-F": "en-AU-NatashaNeural",
+            "en-IN-Journey-F": "en-IN-NeerjaNeural",
         }
-        gemini_voice = gemini_voice_map.get(voice_id, "Aoede")
+        edge_voice = voice_map.get(voice_id, "en-US-AriaNeural")
 
-        response = tts_model.generate_content(
-            contents=[{"parts": [{"text": text[:5000]}]}],
-            generation_config={
-                "response_modalities": ["AUDIO"],
-                "speech_config": {
-                    "voice_config": {
-                        "prebuilt_voice_config": {"voice_name": gemini_voice}
-                    }
-                },
-            },
-        )
+        # Map speed float to edge-tts rate format (e.g. '+20%', '-10%')
+        rate_int = int((speed - 1.0) * 100)
+        rate_str = f"+{rate_int}%" if rate_int >= 0 else f"{rate_int}%"
 
-        # Extract audio bytes from response
-        audio_data = None
-        for part in response.candidates[0].content.parts:
-            if hasattr(part, "inline_data") and part.inline_data:
-                audio_data = part.inline_data.data
-                break
+        communicate = edge_tts.Communicate(text[:5000], edge_voice, rate=rate_str)
+        chunk_buffer = bytearray()
 
-        if audio_data:
-            chunk_size = 4096
-            audio_bytes = audio_data if isinstance(audio_data, bytes) else base64.b64decode(audio_data)
-            for i in range(0, len(audio_bytes), chunk_size):
-                b64 = base64.b64encode(audio_bytes[i:i + chunk_size]).decode()
-                yield f"data: {json.dumps({'type': 'audio', 'chunk': b64})}\n\n"
-        else:
-            raise ValueError("No audio data in Gemini TTS response")
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                chunk_buffer.extend(chunk["data"])
+                # Send in reasonably sized chunks (e.g., 8KB)
+                if len(chunk_buffer) >= 8192:
+                    b64 = base64.b64encode(bytes(chunk_buffer)).decode()
+                    yield f"data: {json.dumps({'type': 'audio', 'chunk': b64})}\n\n"
+                    chunk_buffer.clear()
+                    
+        # Flush any remaining audio
+        if chunk_buffer:
+            b64 = base64.b64encode(bytes(chunk_buffer)).decode()
+            yield f"data: {json.dumps({'type': 'audio', 'chunk': b64})}\n\n"
 
+    except ImportError:
+        logger.warning("edge-tts not installed! Falling back to WebSpeech")
+        yield f"data: {json.dumps({'type': 'use_webspeech', 'text': text, 'speed': speed})}\n\n"
     except Exception as exc:
-        logger.error("Gemini generativeai TTS error: %s", exc)
-        # Final fallback to webspeech
+        logger.error("Edge TTS Error: %s", exc)
         yield f"data: {json.dumps({'type': 'use_webspeech', 'text': text, 'speed': speed})}\n\n"
 
     yield 'data: {"type": "done"}\n\n'

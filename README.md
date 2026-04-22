@@ -28,14 +28,14 @@ docker compose up --build
 ```
 
 - Frontend: http://localhost:3000
+
+### Backend
 - API docs: http://localhost:8000/docs
 - pgAdmin / DB: postgresql://rasoread:rasoread@localhost:5432/rasoread
 
 ---
 
 ## Local Development
-
-### Backend
 
 ```bash
 cd apps/api
