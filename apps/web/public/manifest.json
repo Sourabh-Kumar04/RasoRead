@@ -1,11 +1,11 @@
 {
-  "name": "RasoRead",
+  "name": "RasoRead — AI Audio Reader",
   "short_name": "RasoRead",
-  "description": "AI-powered audio reading platform",
+  "description": "Upload any book. Listen with human-quality AI voices. Highlights sync word by word.",
   "start_url": "/library",
   "display": "standalone",
-  "background_color": "#0b1326",
-  "theme_color": "#0b1326",
+  "background_color": "#0A0A0A",
+  "theme_color": "#0A0A0A",
   "orientation": "portrait-primary",
   "icons": [
     {
@@ -19,8 +19,28 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "My Library",
+      "short_name": "Library",
+      "url": "/library",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Search Books",
+      "short_name": "Search",
+      "url": "/search",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     }
   ],
   "screenshots": [],
-  "categories": ["books", "education", "productivity"]
+  "categories": ["books", "education", "productivity"],
+  "prefer_related_applications": false
 }

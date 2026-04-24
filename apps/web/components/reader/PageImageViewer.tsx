@@ -1,20 +1,15 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { readerApi } from "@/lib/api";
 import { PageData } from "@/stores/readerStore";
 
-interface PageImageViewerProps {
-  bookId: string;
-  currentPage: number;
-  pageData: PageData;
-  activeParagraphIndex: number;
-  isPlaying: boolean;
-}
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface PageImage {
+  page: number;
   image_b64: string;
   width: number;
   height: number;
@@ -22,71 +17,100 @@ interface PageImage {
   pdf_height: number;
 }
 
+interface PageImageViewerProps {
+  bookId: string;
+  currentPage: number;
+  totalPages: number;
+  pageData: PageData | null;
+  activeParagraphIndex: number;
+  isPlaying: boolean;
+  /** Called when page image fails to load (e.g. non-PDF book) */
+  onFailed?: () => void;
+}
+
+// ── Buffer size: current + 2 ahead ────────────────────────────────────────────
+const BUFFER_AHEAD = 2;
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
 export function PageImageViewer({
   bookId,
   currentPage,
+  totalPages,
   pageData,
   activeParagraphIndex,
   isPlaying,
+  onFailed,
 }: PageImageViewerProps) {
-  const [pageImg, setPageImg]   = useState<PageImage | null>(null);
-  const [loading, setLoading]   = useState(true);
-  const [failed,  setFailed]    = useState(false);
-  const activeRef               = useRef<HTMLDivElement | null>(null);
-  const containerRef            = useRef<HTMLDivElement | null>(null);
+  // Map of page number → rendered image data
+  const [imageCache, setImageCache] = useState<Map<number, PageImage>>(new Map());
+  const [loading, setLoading] = useState(true);
+  const activeRef = useRef<HTMLDivElement | null>(null);
+  const fetchingRef = useRef<Set<number>>(new Set());
 
-  // ── Load the rendered page image whenever the page changes ─────────────
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setFailed(false);
-    setPageImg(null);
-
-    readerApi
-      .getPageImage(bookId, currentPage)
-      .then((res) => {
-        if (!cancelled) {
-          setPageImg(res.data);
-          setLoading(false);
+  // ── Fetch a batch of pages into the cache ──────────────────────────────────
+  const fetchBuffer = useCallback(
+    async (startPage: number) => {
+      // Determine which pages we actually need to fetch
+      const needed: number[] = [];
+      for (let p = startPage; p <= Math.min(startPage + BUFFER_AHEAD, totalPages); p++) {
+        if (!imageCache.has(p) && !fetchingRef.current.has(p)) {
+          needed.push(p);
+          fetchingRef.current.add(p);
         }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setLoading(false);
-          setFailed(true);
-        }
-      });
+      }
+      if (needed.length === 0) return;
 
-    return () => { cancelled = true; };
-  }, [bookId, currentPage]);
+      try {
+        const res = await readerApi.getPagesBuffer(bookId, needed[0], needed.length);
+        const pages: PageImage[] = res.data.pages;
+        setImageCache((prev) => {
+          const next = new Map(prev);
+          for (const pg of pages) next.set(pg.page, pg);
+          return next;
+        });
+      } catch {
+        // silently ignore — will retry on next render
+        if (needed[0] === currentPage) onFailed?.();
+      } finally {
+        for (const p of needed) fetchingRef.current.delete(p);
+      }
+    },
+    [bookId, totalPages, imageCache]
+  );
 
-  // ── Prefetch next page in the background ────────────────────────────────
+  // ── Fetch current + buffer whenever page changes ───────────────────────────
   useEffect(() => {
-    if (!pageImg) return;
-    readerApi.getPageImage(bookId, currentPage + 1).catch(() => {/* best-effort */});
-  }, [bookId, currentPage, pageImg]);
+    setLoading(!imageCache.has(currentPage));
+    fetchBuffer(currentPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, bookId]);
 
-  // ── Scroll the active highlight box into view ────────────────────────────
+  // ── Once current page is in cache, stop showing spinner ───────────────────
+  useEffect(() => {
+    if (imageCache.has(currentPage)) setLoading(false);
+  }, [imageCache, currentPage]);
+
+  // ── Scroll active paragraph highlight into view ────────────────────────────
   useEffect(() => {
     if (activeRef.current && isPlaying) {
       activeRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }, [activeParagraphIndex, isPlaying]);
 
-  // ── Loading state ────────────────────────────────────────────────────────
-  if (loading) {
+  const pageImg = imageCache.get(currentPage) ?? null;
+
+  // ── Loading state ──────────────────────────────────────────────────────────
+  if (loading || !pageImg) {
     return (
-      <div className="flex items-center justify-center py-24">
+      <div className="flex items-center justify-center py-32">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-          <span className="text-xs text-outline font-label">Rendering page…</span>
+          <span className="text-xs text-outline font-label">Loading page {currentPage}…</span>
         </div>
       </div>
     );
   }
-
-  // ── Failed → signal caller to fall back to text renderer ────────────────
-  if (failed || !pageImg) return null;
 
   const { pdf_width, pdf_height, image_b64 } = pageImg;
 
@@ -94,53 +118,67 @@ export function PageImageViewer({
     <AnimatePresence mode="wait">
       <motion.div
         key={currentPage}
-        ref={containerRef}
-        initial={{ opacity: 0, scale: 0.99 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.25 }}
-        className="relative w-full select-none rounded-xl overflow-hidden
-                   shadow-[0_8px_40px_rgba(0,0,0,0.6)]
-                   ring-1 ring-white/10"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -8 }}
+        transition={{ duration: 0.2 }}
+        className="relative w-full select-none"
       >
-        {/* ── Rendered PDF page ────────────────────────────────────────── */}
-        <img
-          src={`data:image/png;base64,${image_b64}`}
-          alt={`Page ${currentPage}`}
-          className="w-full h-auto block"
-          draggable={false}
-        />
+        {/* ── Book page shadow + border — real book feel ─────────────────── */}
+        <div
+          className="relative mx-auto rounded-sm overflow-hidden"
+          style={{
+            boxShadow:
+              "0 2px 8px rgba(0,0,0,0.4), 0 8px 32px rgba(0,0,0,0.5), 4px 0 12px rgba(0,0,0,0.2)",
+            maxWidth: "860px",
+          }}
+        >
+          {/* Rendered PDF page image */}
+          <img
+            src={`data:image/png;base64,${image_b64}`}
+            alt={`Page ${currentPage}`}
+            className="w-full h-auto block"
+            draggable={false}
+          />
 
-        {/* ── TTS highlight overlays (% positions from PDF bboxes) ─────── */}
-        {pageData.paragraphs.map((para, idx) => {
-          if (!para.bbox) return null;
-          const [x0, y0, x1, y1] = para.bbox as number[];
+          {/* ── TTS paragraph highlight overlays ─────────────────────────── */}
+          {pageData?.paragraphs.map((para, idx) => {
+            if (!para.bbox) return null;
+            const [x0, y0, x1, y1] = para.bbox as number[];
 
-          const isActive  = activeParagraphIndex === idx && isPlaying;
-          const isSpoken  = activeParagraphIndex >  idx && isPlaying;
+            const isActive = activeParagraphIndex === idx && isPlaying;
+            const isSpoken = activeParagraphIndex > idx && isPlaying;
 
-          if (!isActive && !isSpoken) return null; // skip un-read paras for perf
+            if (!isActive && !isSpoken) return null;
 
-          return (
-            <div
-              key={idx}
-              ref={isActive ? activeRef : null}
-              className={cn(
-                "absolute pointer-events-none rounded-[2px] transition-all duration-400",
-                isActive && "ring-[1.5px] ring-emerald-400/50",
-              )}
-              style={{
-                left:            `${(x0 / pdf_width)         * 100}%`,
-                top:             `${(y0 / pdf_height)        * 100}%`,
-                width:           `${((x1 - x0) / pdf_width)  * 100}%`,
-                height:          `${((y1 - y0) / pdf_height) * 100}%`,
-                background: isActive
-                  ? "rgba(40, 100, 60, 0.38)"   // NaturalReader-style dark green
-                  : "rgba(0, 0, 0, 0.14)",      // dimmed for spoken text
-              }}
-            />
-          );
-        })}
+            return (
+              <div
+                key={idx}
+                ref={isActive ? activeRef : null}
+                className="absolute pointer-events-none rounded-[2px] transition-all duration-300"
+                style={{
+                  left:   `${(x0 / pdf_width)         * 100}%`,
+                  top:    `${(y0 / pdf_height)         * 100}%`,
+                  width:  `${((x1 - x0) / pdf_width)  * 100}%`,
+                  height: `${((y1 - y0) / pdf_height)  * 100}%`,
+                  background: isActive
+                    ? "rgba(34, 197, 94, 0.28)"   // green highlight — active paragraph
+                    : "rgba(0, 0, 0, 0.18)",       // dim — already spoken
+                  boxShadow: isActive
+                    ? "inset 0 0 0 1.5px rgba(34, 197, 94, 0.5)"
+                    : "none",
+                }}
+              />
+            );
+          })}
+        </div>
+
+        {/* ── Page number ───────────────────────────────────────────────── */}
+        <div className="text-center mt-4 mb-2">
+          <span className="font-label text-xs text-outline/50 uppercase tracking-widest">
+            — {currentPage} / {totalPages} —
+          </span>
+        </div>
       </motion.div>
     </AnimatePresence>
   );

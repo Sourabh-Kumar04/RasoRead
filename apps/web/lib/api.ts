@@ -1,4 +1,4 @@
-import axios from "axios";
+﻿import axios from "axios";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -41,7 +41,7 @@ api.interceptors.response.use(
   }
 );
 
-// ── Auth ──────────────────────────────────────────────────────────────────────
+// â”€â”€ Auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const authApi = {
   register: (email: string, name: string, password: string) =>
     api.post("/auth/register", { email, name, password }),
@@ -54,7 +54,7 @@ export const authApi = {
     api.patch("/auth/settings", settings),
 };
 
-// ── Books ─────────────────────────────────────────────────────────────────────
+// â”€â”€ Books â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const booksApi = {
   list: () => api.get("/books"),
   upload: (file: File) => {
@@ -71,12 +71,14 @@ export const booksApi = {
   delete: (id: string) => api.delete(`/books/${id}`),
 };
 
-// ── Reader ────────────────────────────────────────────────────────────────────
+// â”€â”€ Reader â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const readerApi = {
   getPage: (bookId: string, page: number) =>
     api.get(`/reader/${bookId}/text`, { params: { page } }),
-  getPageImage: (bookId: string, page: number) =>
-    api.get(`/reader/${bookId}/page-image`, { params: { page } }),
+  getPageImage: (bookId: string, page: number, dpi = 150) =>
+    api.get(`/reader/${bookId}/page-image`, { params: { page, dpi } }),
+  getPagesBuffer: (bookId: string, start: number, count = 3, dpi = 150) =>
+    api.get(`/reader/${bookId}/pages-buffer`, { params: { start, count, dpi } }),
   getProgress: (bookId: string) => api.get(`/reader/${bookId}/progress`),
   saveProgress: (
     bookId: string,
@@ -95,26 +97,23 @@ export const readerApi = {
     api.delete(`/reader/${bookId}/bookmarks/${bookmarkId}`),
 };
 
-// ── TTS ───────────────────────────────────────────────────────────────────────
+// â”€â”€ TTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const ttsApi = {
   voices: () => api.get("/tts/voices"),
   streamUrl: () => `${API_URL}/tts/stream`,
 };
 
-// ── AI ────────────────────────────────────────────────────────────────────────
+// â”€â”€ AI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const aiApi = {
-  providers: () => api.get("/ai/providers"),
-  ask: (bookId: string, question: string) =>
-    api.post(`/ai/${bookId}/ask`, { question }),
-  summarize: (bookId: string, chapterText: string) =>
-    api.post(`/ai/${bookId}/summarize`, { chapter_text: chapterText }),
-  keypoints: (bookId: string, chapterText: string) =>
-    api.post(`/ai/${bookId}/keypoints`, { chapter_text: chapterText }),
-  describeImage: (bookId: string, imageB64: string) =>
-    api.post(`/ai/${bookId}/describe-image`, { image_b64: imageB64 }),
+  providers:    () => api.get("/ai/providers"),
+  search:       (q: string) => api.get("/ai/search", { params: { q } }),
+  ask:          (bookId: string, question: string) => api.post(`/ai/${bookId}/ask`, { question }),
+  summarize:    (bookId: string, chapterText: string) => api.post(`/ai/${bookId}/summarize`, { chapter_text: chapterText }),
+  keypoints:    (bookId: string, chapterText: string) => api.post(`/ai/${bookId}/keypoints`, { chapter_text: chapterText }),
+  describeImage:(bookId: string, imageB64: string) => api.post(`/ai/${bookId}/describe-image`, { image_b64: imageB64 }),
 };
 
-// ── Notes ─────────────────────────────────────────────────────────────────────
+// â”€â”€ Notes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const notesApi = {
   listHighlights: (bookId: string) =>
     api.get("/notes/highlights", { params: { book_id: bookId } }),
@@ -139,9 +138,11 @@ export const notesApi = {
   deleteNote: (id: string) => api.delete(`/notes/notes/${id}`),
 };
 
-// ── Analytics ─────────────────────────────────────────────────────────────────
+// â”€â”€ Analytics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const analyticsApi = {
-  summary: () => api.get("/analytics/summary"),
+  summary:    () => api.get("/analytics/summary"),
+  pingStreak: () => api.post("/analytics/streak/ping"),
+  getStreak:  () => api.get("/analytics/streak"),
   logEvent: (
     event_type: string,
     book_id?: string,

@@ -10,6 +10,67 @@ from models.db import User, AnalyticsEvent, ReadingProgress, Highlight
 router = APIRouter()
 
 
+@router.post("/streak/ping")
+async def ping_streak(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Call this once per reading session (e.g. when TTS starts playing).
+    Updates the user's streak: increments if last ping was yesterday,
+    resets if more than 1 day has passed, keeps if already pinged today.
+    """
+    now = datetime.now(timezone.utc)
+    today = now.date()
+
+    user = await db.get(User, current_user.id)
+    if not user:
+        return {"streak": 0}
+
+    last = user.streak_last_date
+    last_date = last.date() if last else None
+
+    if last_date is None or (today - last_date).days > 1:
+        # Streak broken or first time
+        user.streak_days = 1
+    elif (today - last_date).days == 1:
+        # Consecutive day
+        user.streak_days = (user.streak_days or 0) + 1
+    # else: same day, no change
+
+    user.streak_last_date = now
+    user.longest_streak = max(user.longest_streak or 0, user.streak_days)
+    db.add(user)
+    await db.commit()
+
+    return {
+        "streak": user.streak_days,
+        "longest": user.longest_streak,
+        "is_new_day": last_date != today,
+    }
+
+
+@router.get("/streak")
+async def get_streak(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    user = await db.get(User, current_user.id)
+    if not user:
+        return {"streak": 0, "longest": 0}
+
+    # Check if streak is still alive (last ping was today or yesterday)
+    now = datetime.now(timezone.utc)
+    last = user.streak_last_date
+    alive = last and (now.date() - last.date()).days <= 1
+
+    return {
+        "streak": user.streak_days if alive else 0,
+        "longest": user.longest_streak or 0,
+        "last_read": last.isoformat() if last else None,
+    }
+
+
 @router.get("/summary")
 async def analytics_summary(
     current_user: User = Depends(get_current_user),

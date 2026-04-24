@@ -5,12 +5,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import {
   X, FileText, Image, Brain, BarChart2,
-  Mic, Plus, Trash2, Loader2, Send,
+  Mic, Plus, Trash2, Loader2, Send, Download,
 } from "lucide-react";
 import { useReaderStore } from "@/stores/readerStore";
 import { notesApi, aiApi, analyticsApi } from "@/lib/api";
 import { useVoiceCommands } from "@/hooks/useVoiceCommands";
 import { AIProviderBadge, AIProviderPanel } from "@/components/ui/AIProviderPanel";
+import { toast } from "@/components/ui/Toast";
 
 interface SmartPanelProps {
   bookId: string;
@@ -103,6 +104,23 @@ export function SmartPanel({ bookId }: SmartPanelProps) {
       await notesApi.deleteNote(id);
       setNotes((prev) => prev.filter((n) => n.id !== id));
     } catch {}
+  };
+
+  // ── Export highlights as Markdown ────────────────────────────────────────
+  const exportHighlights = (hl: any[], bookTitle: string) => {
+    const lines = [
+      `# Highlights — ${bookTitle}`,
+      `*Exported from RasoRead on ${new Date().toLocaleDateString()}*`,
+      "",
+      ...hl.map((h) => `> ${h.text}\n> — Page ${h.page}\n`),
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/markdown" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = url;
+    a.download = `${bookTitle.replace(/[^a-z0-9]/gi, "_")}_highlights.md`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const deleteHighlight = async (id: string) => {
@@ -243,9 +261,19 @@ export function SmartPanel({ bookId }: SmartPanelProps) {
               {/* Highlights section */}
               {highlights.length > 0 && (
                 <div>
-                  <p className="font-label text-[10px] uppercase tracking-widest text-outline mb-3">
-                    Highlights — p.{store.currentPage}
-                  </p>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="font-label text-[10px] uppercase tracking-widest text-outline">
+                      Highlights — {highlights.length} total
+                    </p>
+                    <button
+                      onClick={() => exportHighlights(highlights, store.bookTitle)}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg border border-outline-variant/30 hover:border-primary/30 text-outline hover:text-primary transition-colors"
+                      title="Export highlights as Markdown"
+                    >
+                      <Download size={11} />
+                      <span className="font-label text-[9px] uppercase tracking-widest">Export</span>
+                    </button>
+                  </div>
                   <div className="space-y-2">
                     {highlights
                       .filter((h) => h.page === store.currentPage)
@@ -254,14 +282,26 @@ export function SmartPanel({ bookId }: SmartPanelProps) {
                           key={h.id}
                           className="group relative p-3 rounded-lg bg-surface-high border border-primary/20"
                         >
-                          <p className="text-sm text-[#dae2fd] leading-relaxed">{h.text}</p>
-                          <button
-                            onClick={() => deleteHighlight(h.id)}
-                            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100
-                                       p-1 rounded hover:bg-white/10 transition-all"
-                          >
-                            <Trash2 size={12} className="text-outline" />
-                          </button>
+                          <p className="text-sm text-[#dae2fd] leading-relaxed pr-12">{h.text}</p>
+                          <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                            <button
+                              onClick={() => {
+                                const url = `${window.location.origin}/share/${h.id}`;
+                                navigator.clipboard?.writeText(url);
+                                toast.success("Share link copied");
+                              }}
+                              className="p-1 rounded hover:bg-white/10 transition-all"
+                              title="Copy share link"
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-outline"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                            </button>
+                            <button
+                              onClick={() => deleteHighlight(h.id)}
+                              className="p-1 rounded hover:bg-white/10 transition-all"
+                            >
+                              <Trash2 size={12} className="text-outline" />
+                            </button>
+                          </div>
                         </div>
                       ))}
                   </div>

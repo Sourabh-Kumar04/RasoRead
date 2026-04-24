@@ -4,10 +4,38 @@ from sqlalchemy import select, delete
 
 from core.database import get_db
 from core.security import get_current_user
-from models.db import User, Highlight, Note
+from models.db import User, Book, Highlight, Note
 from schemas.pydantic_schemas import HighlightIn, HighlightOut, NoteIn, NoteOut
 
 router = APIRouter()
+
+
+# ── Public share endpoint (no auth required) ──────────────────────────────────
+
+@router.get("/highlights/{highlight_id}/share")
+async def share_highlight(
+    highlight_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Public endpoint — returns just enough data to render a share card.
+    No auth required so the link works for anyone.
+    """
+    result = await db.execute(select(Highlight).where(Highlight.id == highlight_id))
+    h = result.scalar_one_or_none()
+    if not h:
+        raise HTTPException(404, "Highlight not found")
+
+    book_result = await db.execute(select(Book).where(Book.id == h.book_id))
+    book = book_result.scalar_one_or_none()
+
+    return {
+        "text":       h.text,
+        "book_title": book.title if book else "Unknown",
+        "author":     book.author if book else None,
+        "page":       h.page,
+        "color":      h.color,
+    }
 
 
 # ── Highlights ────────────────────────────────────────────────────────────────

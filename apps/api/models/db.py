@@ -22,6 +22,11 @@ class User(Base):
     password: Mapped[str] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
     settings: Mapped[dict] = mapped_column(JSON, default=dict)
+    # ── Streak tracking ───────────────────────────────────────────────────────
+    streak_days: Mapped[int] = mapped_column(Integer, default=0)
+    streak_last_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    longest_streak: Mapped[int] = mapped_column(Integer, default=0)
+    total_listening_minutes: Mapped[int] = mapped_column(Integer, default=0)
 
     books: Mapped[list["Book"]] = relationship("Book", back_populates="user", cascade="all, delete-orphan")
     progress: Mapped[list["ReadingProgress"]] = relationship("ReadingProgress", back_populates="user")

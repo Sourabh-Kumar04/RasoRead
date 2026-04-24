@@ -19,29 +19,25 @@ export function MobileNav() {
   if (pathname.startsWith("/reader")) return null;
 
   return (
-    <nav
-      className="fixed bottom-0 left-0 right-0 z-50 md:hidden
-                 flex justify-around items-center h-20 pb-safe px-4
-                 bg-surface rounded-t-3xl border-t border-outline-variant/10 shadow-2xl"
-    >
-      {NAV_ITEMS.map(({ label, icon: Icon, href }) => {
-        const active = pathname === href.split("?")[0];
-        return (
-          <button
-            key={label}
-            onClick={() => router.push(href)}
-            className={cn(
-              "flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-xl transition-colors",
-              active
-                ? "bg-primary/10 text-primary"
-                : "text-outline hover:text-secondary"
-            )}
-          >
-            <Icon size={20} />
-            <span className="font-label text-[9px] uppercase tracking-widest">{label}</span>
-          </button>
-        );
-      })}
+    <nav className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 md:hidden">
+      <div className="rounded-full bg-[#0A0A0A]/90 backdrop-blur-[24px] border border-white/10 shadow-[0_10px_50px_rgba(99,102,241,0.2)] flex items-center gap-8 px-8 py-3">
+        {NAV_ITEMS.map(({ label, icon: Icon, href }) => {
+          const active = pathname === href.split("?")[0];
+          return (
+            <button
+              key={label}
+              onClick={() => router.push(href)}
+              className={cn(
+                "flex flex-col items-center gap-1 transition-all active:scale-90 duration-150",
+                active ? "text-primary scale-110" : "text-zinc-500 hover:text-white"
+              )}
+            >
+              <Icon size={20} />
+              <span className="font-label text-[10px] uppercase tracking-[0.2em] font-bold">{label}</span>
+            </button>
+          );
+        })}
+      </div>
     </nav>
   );
 }

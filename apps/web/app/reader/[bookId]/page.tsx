@@ -6,7 +6,7 @@ import { AnimatePresence } from "framer-motion";
 import { BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-import { booksApi, ttsApi, readerApi } from "@/lib/api";
+import { booksApi, ttsApi, readerApi, analyticsApi } from "@/lib/api";
 import { useReaderStore } from "@/stores/readerStore";
 import { useReadingSession } from "@/hooks/useReadingSession";
 import { useVoiceCommands } from "@/hooks/useVoiceCommands";
@@ -38,9 +38,6 @@ export default function ReaderPage() {
   const goToPageRef = useRef<(page: number) => void>(() => {});
 
   // ── Single TTS instance for the entire reader page ──────────────────────────
-  // IMPORTANT: useTTSSync must only be instantiated ONCE. Having it in both
-  // FloatingControls and DocumentViewer causes two separate audio contexts,
-  // conflicting session refs, and broken auto-continue.
   const tts = useTTSSync({ onPageEnd: () => goToPageRef.current(store.currentPage + 1) });
 
   const [voices, setVoices] = useState<{ id: string; name: string }[]>([]);
@@ -109,7 +106,15 @@ export default function ReaderPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookStatus]);
 
-  // ── Auto-save progress on page change ──────────────────────────────────────
+  // ── Ping streak when playback starts ───────────────────────────────────────
+  const streakPingedRef = useRef(false);
+  useEffect(() => {
+    if (store.isPlaying && !streakPingedRef.current) {
+      streakPingedRef.current = true;
+      analyticsApi.pingStreak().catch(() => {});
+    }
+    if (!store.isPlaying) streakPingedRef.current = false;
+  }, [store.isPlaying]);
   useEffect(() => {
     if (!initialized || !store.currentPage || !store.totalPages) return;
     const pct = (store.currentPage / store.totalPages) * 100;
@@ -123,10 +128,31 @@ export default function ReaderPage() {
     async (page: number) => {
       const target = Math.max(1, Math.min(page, store.totalPages));
       if (target === store.currentPage) return;
+
+      // If we've reached the last page and TTS triggered this, stop
+      if (target > store.totalPages) {
+        tts.stop();
+        return;
+      }
+
+      const wasPlaying = store.isPlaying;
       store.setPage(target);
       await loadPage(target);
+
+      // Auto-start reading the new page if we were playing (continuous read)
+      if (wasPlaying) {
+        // Small delay to let pageData settle in the store
+        setTimeout(() => {
+          const paras = useReaderStore.getState().pageData?.paragraphs ?? [];
+          const firstIdx = paras.findIndex((p) => p.text.trim().length > 0);
+          if (firstIdx !== -1) {
+            tts.play(paras[firstIdx].text, firstIdx);
+          }
+        }, 400);
+      }
     },
-    [store, loadPage]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [store, loadPage, tts]
   );
 
   // Keep the ref in sync so the TTS onPageEnd closure always has the latest version
@@ -230,7 +256,7 @@ export default function ReaderPage() {
         )}
       >
         <ErrorBoundary>
-          <DocumentViewer bookId={bookId} tts={tts} />
+          <DocumentViewer bookId={bookId} tts={tts} onBookEnd={() => tts.stop()} />
         </ErrorBoundary>
       </main>
 

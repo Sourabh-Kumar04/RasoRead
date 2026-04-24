@@ -1,7 +1,8 @@
 import base64
+import asyncio
 
 import fitz  # PyMuPDF
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 
@@ -14,6 +15,39 @@ from services.storage_service import StorageService
 router = APIRouter()
 
 
+async def _get_book_bytes(book: Book) -> bytes:
+    """Retrieve raw file bytes from DB blob or storage backend."""
+    if book.file_data:
+        return book.file_data
+    if book.s3_key:
+        storage = StorageService()
+        return await storage.download(book.s3_key, book_id=book.id)
+    raise HTTPException(404, "Book file not found in storage")
+
+
+def _render_page(file_bytes: bytes, page_num: int, dpi: int) -> dict:
+    """Render a single PDF page to base64 PNG. page_num is 1-based."""
+    doc = fitz.open(stream=file_bytes, filetype="pdf")
+    if page_num < 1 or page_num > len(doc):
+        doc.close()
+        raise HTTPException(404, f"Page {page_num} not found (book has {len(doc)} pages)")
+    fitz_page = doc[page_num - 1]
+    mat = fitz.Matrix(dpi / 72, dpi / 72)
+    pix = fitz_page.get_pixmap(matrix=mat, colorspace=fitz.csRGB)
+    img_b64 = base64.b64encode(pix.tobytes("png")).decode("utf-8")
+    pdf_width  = fitz_page.rect.width
+    pdf_height = fitz_page.rect.height
+    doc.close()
+    return {
+        "page":       page_num,
+        "image_b64":  img_b64,
+        "width":      pix.width,
+        "height":     pix.height,
+        "pdf_width":  pdf_width,
+        "pdf_height": pdf_height,
+    }
+
+
 @router.get("/{book_id}/page-image")
 async def get_page_image(
     book_id: str,
@@ -22,54 +56,64 @@ async def get_page_image(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Render a PDF page with PyMuPDF and return it as a base64 PNG."""
+    """Render a single PDF page and return it as a base64 PNG."""
+    book = await _get_book(book_id, current_user.id, db)
+    if book.status != "ready":
+        raise HTTPException(202, "Book is still processing")
+    if book.file_type != "pdf":
+        raise HTTPException(400, "Page images are only available for PDF books")
+    try:
+        file_bytes = await _get_book_bytes(book)
+        return _render_page(file_bytes, page, dpi)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(500, f"Error rendering page: {exc}")
+
+
+@router.get("/{book_id}/pages-buffer")
+async def get_pages_buffer(
+    book_id: str,
+    start: int = Query(1, ge=1, description="First page to render (1-based)"),
+    count: int = Query(3, ge=1, le=5, description="Number of pages to render"),
+    dpi: int = Query(150, ge=72, le=300),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Render multiple consecutive PDF pages in one request.
+    Returns a list of page image objects for buffered pre-loading.
+    Used by the frontend to pre-fetch current + next N pages so page
+    transitions are instant with no loading flash.
+    """
     book = await _get_book(book_id, current_user.id, db)
     if book.status != "ready":
         raise HTTPException(202, "Book is still processing")
     if book.file_type != "pdf":
         raise HTTPException(400, "Page images are only available for PDF books")
 
-    # Retrieve the raw file bytes (DB blob or storage backend)
     try:
-        if book.file_data:
-            file_bytes = book.file_data
-        elif book.s3_key:
-            storage = StorageService()
-            file_bytes = await storage.download(book.s3_key, book_id=book_id)
-        else:
-            raise HTTPException(404, "Book file not found in storage")
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(500, f"Could not retrieve book file: {exc}")
-
-    # Render with PyMuPDF
-    try:
+        file_bytes = await _get_book_bytes(book)
         doc = fitz.open(stream=file_bytes, filetype="pdf")
-        if page < 1 or page > len(doc):
-            raise HTTPException(404, f"Page {page} not found (book has {len(doc)} pages)")
-
-        fitz_page = doc[page - 1]
-        mat = fitz.Matrix(dpi / 72, dpi / 72)
-        pix = fitz_page.get_pixmap(matrix=mat, colorspace=fitz.csRGB)
-
-        img_b64 = base64.b64encode(pix.tobytes("png")).decode("utf-8")
-        pdf_width  = fitz_page.rect.width
-        pdf_height = fitz_page.rect.height
+        total = len(doc)
         doc.close()
-
-        return {
-            "page":       page,
-            "image_b64":  img_b64,
-            "width":      pix.width,
-            "height":     pix.height,
-            "pdf_width":  pdf_width,
-            "pdf_height": pdf_height,
-        }
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(500, f"Error rendering page: {exc}")
+        raise HTTPException(500, f"Could not open book: {exc}")
+
+    # Clamp page range to valid bounds
+    pages_to_render = [p for p in range(start, start + count) if 1 <= p <= total]
+
+    # Render pages (synchronously — fitz is not async-safe to parallelize)
+    results = []
+    for p in pages_to_render:
+        try:
+            results.append(_render_page(file_bytes, p, dpi))
+        except Exception:
+            pass  # skip failed pages silently
+
+    return {"pages": results, "total_pages": total}
 
 
 @router.get("/{book_id}/text")

@@ -31,7 +31,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   theme: "dark",
   fontSize: 20,
   dyslexiaMode: false,
-  defaultVoice: "en-US-Journey-F",
+  defaultVoice: "edge-en-US-AriaNeural",
   defaultSpeed: 1.0,
   autoResume: true,
   voiceCommandsEnabled: true,

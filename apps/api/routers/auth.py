@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi import APIRouter, Depends, HTTPException, status, Body, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from jose import JWTError, jwt
@@ -69,8 +69,16 @@ async def refresh(
 
 
 @router.get("/me", response_model=UserOut)
-async def me(current_user: User = Depends(get_current_user)):
+async def me(current_user: User = Depends(get_current_user), request: Request = None):
     return current_user
+
+
+@router.get("/me/usage")
+async def me_usage(request: Request, current_user: User = Depends(get_current_user)):
+    """Return daily quota usage for the current user."""
+    from core.rate_limit import get_daily_usage, _get_user_key
+    key = _get_user_key(request)
+    return get_daily_usage(key)
 
 
 @router.patch("/settings")

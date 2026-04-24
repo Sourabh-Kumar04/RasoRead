@@ -90,7 +90,7 @@ export const useReaderStore = create<ReaderState>()(
         isPlaying: false,
         isPaused: false,
         ttsSpeed: 1.0,
-        voiceId: "en-US-Journey-F",
+        voiceId: "edge-en-US-AriaNeural",
         activeWordIndex: -1,
         activeParagraphIndex: 0,
         wordTimestamps: [],

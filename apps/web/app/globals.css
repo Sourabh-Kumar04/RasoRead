@@ -1,141 +1,144 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400;1,6..72,700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  :root {
-    color-scheme: dark;
-  }
+  :root { color-scheme: dark; }
 
-  html {
-    scroll-behavior: smooth;
-  }
+  html { scroll-behavior: smooth; }
 
   body {
-    @apply bg-surface text-[#dae2fd] font-body antialiased;
+    background-color: #0A0A0A;
+    color: #e5e2e1;
+    font-family: "Manrope", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
     min-height: 100dvh;
   }
 
-  * {
-    @apply box-border;
-  }
+  * { box-sizing: border-box; }
 
   ::selection {
-    background: rgba(195, 192, 255, 0.3);
-    color: #e2dfff;
+    background: rgba(192, 193, 255, 0.3);
+    color: #fff;
   }
 
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    background: #454652;
-    border-radius: 3px;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background: #908f9d;
-  }
+  ::-webkit-scrollbar        { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track  { background: transparent; }
+  ::-webkit-scrollbar-thumb  { background: #2a2a2a; border-radius: 10px; }
+  ::-webkit-scrollbar-thumb:hover { background: #464554; }
 }
 
 @layer components {
+  /* ── Glass card ─────────────────────────────────────────────────────────── */
+  .glass-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(144, 143, 160, 0.15);
+    border-top-color: rgba(192, 193, 255, 0.2);
+  }
+
+  .glass-card:hover {
+    border-color: rgba(99, 102, 241, 0.3);
+  }
+
   .glass {
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
   }
 
-  .text-gradient {
-    background: linear-gradient(135deg, #c3c0ff 0%, #8d8aff 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+  /* ── Indigo glow ────────────────────────────────────────────────────────── */
+  .indigo-glow {
+    box-shadow: 0 20px 40px -15px rgba(99, 102, 241, 0.2);
   }
 
+  /* ── Buttons ────────────────────────────────────────────────────────────── */
   .btn-primary {
-    @apply bg-primary text-[#0f0069] font-label font-bold px-6 py-3 rounded-xl
-           hover:opacity-90 active:scale-95 transition-all duration-150;
+    @apply bg-primary text-on-primary font-label font-semibold px-6 py-3 rounded-xl
+           hover:brightness-110 active:scale-95 transition-all duration-150
+           shadow-lg;
+    box-shadow: 0 10px 20px rgba(99, 102, 241, 0.25);
   }
 
   .btn-ghost {
-    @apply border border-outline-variant/30 text-primary font-label
-           px-6 py-3 rounded-xl hover:bg-primary/5 active:scale-95
+    @apply border border-outline text-on-surface font-label font-medium
+           px-6 py-3 rounded-xl hover:bg-white/5 active:scale-95
            transition-all duration-150;
   }
 
-  /* TTS word highlight */
+  /* ── TTS word tokens ────────────────────────────────────────────────────── */
   .word-token {
-    @apply rounded-sm transition-all duration-100 cursor-pointer;
+    border-radius: 3px;
+    transition: all 0.1s;
+    cursor: pointer;
     padding: 1px 2px;
   }
 
   .word-token:hover {
-    background: rgba(195, 192, 255, 0.1);
+    background: rgba(192, 193, 255, 0.1);
   }
 
-  .word-token.active {
-    background: rgba(195, 192, 255, 0.2);
-    color: #e2dfff;
-    border-radius: 3px;
-  }
-
-  /* Active word inside a TTS sentence band */
   .word-token.tts-active-word {
-    background: rgba(52, 211, 153, 0.45);
-    color: #6ee7b7;
+    background: rgba(128, 131, 255, 0.4);
+    color: #e1e0ff;
     border-radius: 3px;
     font-weight: 600;
     padding: 1px 3px;
   }
 
   .word-token.spoken {
-    color: #64748b;
+    color: #464554;
   }
 
-  /* Highlight colors */
-  .highlight-primary {
-    background: rgba(195, 192, 255, 0.2);
-    border-bottom: 2px solid rgba(195, 192, 255, 0.6);
-  }
-
-  .highlight-yellow {
-    background: rgba(239, 159, 39, 0.2);
-    border-bottom: 2px solid rgba(239, 159, 39, 0.6);
-  }
-
-  .highlight-green {
-    background: rgba(29, 158, 117, 0.2);
-    border-bottom: 2px solid rgba(29, 158, 117, 0.5);
-  }
-
-  .highlight-red {
-    background: rgba(226, 75, 74, 0.2);
-    border-bottom: 2px solid rgba(226, 75, 74, 0.5);
-  }
-
-  /* Focus mode */
-  .focus-mode .shell-hide {
-    @apply opacity-0 pointer-events-none;
-  }
-
-  /* Reader typography */
+  /* ── Reader typography ──────────────────────────────────────────────────── */
   .reader-text {
-    @apply font-body text-xl leading-[1.9] text-[#dae2fd]/90;
+    font-family: "Newsreader", Georgia, serif;
+    font-size: 20px;
+    line-height: 1.8;
+    color: #c7c4d7;
     letter-spacing: 0.01em;
   }
 
   .reader-heading {
-    @apply font-headline text-3xl font-semibold text-[#dae2fd] mb-6 mt-10 leading-tight;
+    font-family: "Newsreader", Georgia, serif;
+    font-size: 28px;
+    font-weight: 600;
+    color: #e5e2e1;
+    margin-bottom: 1.5rem;
+    margin-top: 2.5rem;
+    line-height: 1.3;
   }
 
-  /* Dyslexia mode */
+  /* ── Highlight colors ───────────────────────────────────────────────────── */
+  .highlight-primary {
+    background: rgba(192, 193, 255, 0.15);
+    border-bottom: 2px solid rgba(128, 131, 255, 0.6);
+  }
+
+  .highlight-yellow {
+    background: rgba(234, 179, 8, 0.12);
+    border-bottom: 2px solid rgba(234, 179, 8, 0.5);
+  }
+
+  .highlight-green {
+    background: rgba(34, 197, 94, 0.1);
+    border-bottom: 2px solid rgba(34, 197, 94, 0.4);
+  }
+
+  .highlight-red {
+    background: rgba(239, 68, 68, 0.1);
+    border-bottom: 2px solid rgba(239, 68, 68, 0.4);
+  }
+
+  /* ── Focus mode ─────────────────────────────────────────────────────────── */
+  .focus-mode .shell-hide {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* ── Dyslexia mode ──────────────────────────────────────────────────────── */
   .dyslexia-mode .reader-text,
   .dyslexia-mode .word-token {
     font-family: "OpenDyslexic", "Comic Sans MS", sans-serif !important;
@@ -144,8 +147,22 @@
     line-height: 2.2 !important;
   }
 
-  /* Sepia mode */
+  /* ── Sepia mode ─────────────────────────────────────────────────────────── */
   .sepia-mode {
-    filter: sepia(30%);
+    filter: sepia(20%);
   }
+
+  /* ── Reading progress bar ───────────────────────────────────────────────── */
+  .reading-progress-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 2px;
+    background-color: #c0c1ff;
+    z-index: 100;
+  }
+
+  /* ── No scrollbar ───────────────────────────────────────────────────────── */
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 }

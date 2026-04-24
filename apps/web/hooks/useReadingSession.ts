@@ -8,7 +8,6 @@ import { useReaderStore } from "@/stores/readerStore";
 export function useReadingSession(bookId: string) {
   const store = useReaderStore();
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const isOnline = typeof navigator !== "undefined" ? navigator.onLine : true;
 
   // Load progress on mount (backend first, fallback to IndexedDB)
   const loadProgress = useCallback(async () => {
@@ -18,10 +17,12 @@ export function useReadingSession(bookId: string) {
       store.setProgress(p.current_page, p.char_offset, p.completion_pct);
       store.setSpeed(p.tts_speed);
       store.setVoice(p.voice_id);
-      // Cache locally for offline
       await offlineCache.saveProgress(bookId, p);
-    } catch {
-      // Fallback to IndexedDB
+    } catch (err: any) {
+      // 404 = no progress yet (first time opening this book) — this is expected
+      if (err?.response?.status !== 404) {
+        console.warn("Could not load progress from server, using local cache");
+      }
       const cached = await offlineCache.loadProgress(bookId);
       if (cached) {
         store.setProgress(cached.current_page, cached.char_offset, cached.completion_pct || 0);

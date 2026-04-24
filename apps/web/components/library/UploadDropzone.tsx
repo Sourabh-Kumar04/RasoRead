@@ -86,15 +86,13 @@ export function UploadDropzone({ onUploadSuccess }: UploadDropzoneProps) {
     <div
       {...getRootProps()}
       className={cn(
-        "relative rounded-2xl border-2 border-dashed p-10 text-center cursor-pointer",
+        "relative rounded-xl border-2 border-dashed p-10 text-center cursor-pointer",
         "transition-all duration-200 select-none",
         isDragActive && !isDragReject && "border-primary/60 bg-primary/5",
         isDragReject && "border-red-500/60 bg-red-500/5",
-        state === "error" && "border-red-500/40",
+        state === "error"   && "border-red-500/40",
         state === "success" && "border-green-500/40",
-        state === "idle" &&
-          !isDragActive &&
-          "border-outline-variant/30 hover:border-primary/30 hover:bg-primary/5"
+        state === "idle" && !isDragActive && "border-white/10 hover:border-primary/40 hover:bg-primary/5"
       )}
     >
       <input {...getInputProps()} />
@@ -112,16 +110,12 @@ export function UploadDropzone({ onUploadSuccess }: UploadDropzoneProps) {
               <Upload size={28} className="text-primary" />
             </div>
             <div>
-              <p className="font-label font-semibold text-[#dae2fd]">
+              <p className="font-label font-semibold text-on-surface">
                 {isDragActive ? "Drop your book here" : "Upload a book"}
               </p>
-              <p className="font-label text-sm text-outline mt-1">
-                PDF · EPUB · DOCX · TXT &nbsp;·&nbsp; Max 100 MB
-              </p>
+              <p className="font-label text-sm text-zinc-500 mt-1">PDF · EPUB · DOCX · TXT &nbsp;·&nbsp; Max 100 MB</p>
             </div>
-            <button type="button" className="btn-primary text-sm pointer-events-none">
-              Browse files
-            </button>
+            <button type="button" className="btn-primary text-sm pointer-events-none">Browse files</button>
           </motion.div>
         )}
 
@@ -134,10 +128,8 @@ export function UploadDropzone({ onUploadSuccess }: UploadDropzoneProps) {
             className="space-y-4"
           >
             <Loader2 size={36} className="text-primary mx-auto animate-spin" />
-            <p className="font-label text-sm text-[#dae2fd]">
-              Uploading &amp; processing…
-            </p>
-            <div className="w-full max-w-xs mx-auto h-1.5 bg-surface-highest rounded-full overflow-hidden">
+            <p className="font-label text-sm text-on-surface">Uploading &amp; processing…</p>
+            <div className="w-full max-w-xs mx-auto h-1.5 bg-surface-container-high rounded-full overflow-hidden">
               <motion.div
                 className="h-full bg-primary rounded-full"
                 animate={{ width: `${progress}%` }}
@@ -156,9 +148,7 @@ export function UploadDropzone({ onUploadSuccess }: UploadDropzoneProps) {
             className="space-y-3"
           >
             <CheckCircle size={36} className="text-green-400 mx-auto" />
-            <p className="font-label text-sm text-[#dae2fd]">
-              Uploaded! Processing in background…
-            </p>
+            <p className="font-label text-sm text-on-surface">Uploaded! Processing in background…</p>
           </motion.div>
         )}
 

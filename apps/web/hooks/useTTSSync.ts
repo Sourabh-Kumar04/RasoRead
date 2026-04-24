@@ -12,8 +12,9 @@ function findNextReadable(
   paragraphs: { text: string }[],
   currentIdx: number
 ): number {
+  // Read ALL paragraphs including headings — skip only truly empty ones
   for (let i = currentIdx + 1; i < paragraphs.length; i++) {
-    if (paragraphs[i].text.trim()) return i;
+    if (paragraphs[i].text.trim().length > 0) return i;
   }
   return -1;
 }
@@ -26,6 +27,7 @@ export function useTTSSync(options?: UseTTSSyncOptions) {
   const audioChunksRef  = useRef<Uint8Array[]>([]);
   const utteranceRef    = useRef<SpeechSynthesisUtterance | null>(null);
   const onPageEndRef    = useRef<(() => void) | undefined>(options?.onPageEnd);
+  const goToPageRef     = useRef<((delta: number) => void) | null>(null);
   const selfPlayRef     = useRef<((t: string, p: number) => Promise<void>) | null>(null);
   const webSpeechMode   = useRef(false);
   const sessionRef      = useRef(0);
@@ -148,17 +150,17 @@ export function useTTSSync(options?: UseTTSSyncOptions) {
       store.setWordTimestamps([]); // CLEAR old text immediately!
       audioChunksRef.current = [];
 
+      // CRITICAL FIX: The app was getting permanently stuck in WebSpeech fallback mode 
+      // after a single error, bypassing the backend Edge TTS entirely forever.
+      // We must reset it to false on every new paragraph so we always attempt high-quality TTS.
+      webSpeechMode.current = false;
+
       // 1. Create Audio object synchronously so we don't hit Autoplay lock
       if (!audioRef.current) audioRef.current = new Audio();
       try {
         audioRef.current.play().catch(() => {});
         audioRef.current.pause();
       } catch (e) {}
-
-      if (webSpeechMode.current) {
-        speakWithWebSpeech(text, [], paraIndex, mySession);
-        return;
-      }
 
       const { voiceId, ttsSpeed } = useReaderStore.getState();
       const token = typeof window !== "undefined" ? localStorage.getItem("rasoread_access_token") : null;
@@ -273,6 +275,45 @@ export function useTTSSync(options?: UseTTSSyncOptions) {
   );
 
   useEffect(() => { selfPlayRef.current = play; }, [play]);
+
+  // ── Media Session API — lock screen controls ──────────────────────────────
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
+
+    const state = useReaderStore.getState();
+    const title = state.bookTitle || "RasoRead";
+    const page  = state.currentPage;
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title,
+      artist: `Page ${page}`,
+      album:  "RasoRead",
+      artwork: [
+        { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
+        { src: "/icon-512.png", sizes: "512x512", type: "image/png" },
+      ],
+    });
+
+    navigator.mediaSession.setActionHandler("play",          () => { audioRef.current?.play(); store.setPlaying(true); });
+    navigator.mediaSession.setActionHandler("pause",         () => { audioRef.current?.pause(); store.setPlaying(false); store.setPaused(true); });
+    navigator.mediaSession.setActionHandler("seekbackward",  () => { if (audioRef.current) audioRef.current.currentTime = Math.max(0, audioRef.current.currentTime - 10); });
+    navigator.mediaSession.setActionHandler("seekforward",   () => { if (audioRef.current) audioRef.current.currentTime += 30; });
+    navigator.mediaSession.setActionHandler("previoustrack", () => { /* restart current paragraph */ if (audioRef.current) audioRef.current.currentTime = 0; });
+    navigator.mediaSession.setActionHandler("nexttrack",     () => { onPageEndRef.current?.(); });
+
+    return () => {
+      ["play","pause","seekbackward","seekforward","previoustrack","nexttrack"].forEach((a) => {
+        try { navigator.mediaSession.setActionHandler(a as MediaSessionAction, null); } catch {}
+      });
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store.bookTitle, store.currentPage]);
+
+  // Keep Media Session playback state in sync
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
+    navigator.mediaSession.playbackState = store.isPlaying ? "playing" : store.isPaused ? "paused" : "none";
+  }, [store.isPlaying, store.isPaused]);
 
   const pause = useCallback(() => {
     audioRef.current?.pause();

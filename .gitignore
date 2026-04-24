@@ -37,3 +37,6 @@ celerybeat-schedule
 .pytest_cache/
 htmlcov/
 .coverage
+
+
+kiro/

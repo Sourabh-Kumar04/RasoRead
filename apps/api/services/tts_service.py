@@ -1,5 +1,12 @@
 """
-TTS Service — Gemini (Google Cloud TTS), OpenAI, ElevenLabs, or Web Speech fallback.
+TTS Service — Edge TTS (default, free), Gemini, OpenAI, ElevenLabs, or Web Speech last resort.
+
+Provider priority (no API keys needed for the top two):
+  1. edge-tts  — Microsoft Azure Neural voices, free, no key, human-quality
+  2. gemini    — Google Cloud TTS (requires GEMINI_API_KEY)
+  3. openai    — OpenAI TTS-1-HD (requires OPENAI_API_KEY)
+  4. elevenlabs — ElevenLabs (requires ELEVENLABS_API_KEY)
+  5. webspeech — Browser SpeechSynthesis (last resort, robotic)
 
 All providers stream Server-Sent Events in the same format:
   { type: "timestamps", data: [{word, start, end}] }   — always first
@@ -7,9 +14,6 @@ All providers stream Server-Sent Events in the same format:
   { type: "use_webspeech", text, speed }                — fallback only
   { type: "error", message }                            — on failure
   { type: "done" }                                      — always last
-
-Word timestamps are computed analytically (character-rate model).
-Replace with real word-boundary events from the TTS API for production accuracy.
 """
 import re
 import base64
@@ -26,7 +30,43 @@ _HAS_GEMINI     = bool(settings.GEMINI_API_KEY)
 _HAS_OPENAI     = bool(settings.OPENAI_API_KEY)
 _HAS_ELEVENLABS = bool(settings.ELEVENLABS_API_KEY)
 
-# Gemini TTS voices (Google Cloud Text-to-Speech)
+# Check edge-tts availability once at import time
+try:
+    import edge_tts as _edge_tts_check  # noqa: F401
+    _HAS_EDGE_TTS = True
+except ImportError:
+    _HAS_EDGE_TTS = False
+
+# ── Edge TTS voices (Microsoft Azure Neural — free, no API key) ───────────────
+VOICES_EDGE = [
+    # American English
+    {"id": "edge-en-US-AriaNeural",        "name": "Aria",        "gender": "female", "accent": "American",    "style": "Warm & natural",    "provider": "edge"},
+    {"id": "edge-en-US-JennyNeural",       "name": "Jenny",       "gender": "female", "accent": "American",    "style": "Friendly",          "provider": "edge"},
+    {"id": "edge-en-US-MichelleNeural",    "name": "Michelle",    "gender": "female", "accent": "American",    "style": "Professional",      "provider": "edge"},
+    {"id": "edge-en-US-GuyNeural",         "name": "Guy",         "gender": "male",   "accent": "American",    "style": "Authoritative",     "provider": "edge"},
+    {"id": "edge-en-US-ChristopherNeural", "name": "Christopher", "gender": "male",   "accent": "American",    "style": "Deep & clear",      "provider": "edge"},
+    {"id": "edge-en-US-EricNeural",        "name": "Eric",        "gender": "male",   "accent": "American",    "style": "Calm",              "provider": "edge"},
+    {"id": "edge-en-US-RogerNeural",       "name": "Roger",       "gender": "male",   "accent": "American",    "style": "Confident",         "provider": "edge"},
+    {"id": "edge-en-US-SteffanNeural",     "name": "Steffan",     "gender": "male",   "accent": "American",    "style": "Narrative",         "provider": "edge"},
+    # British English
+    {"id": "edge-en-GB-SoniaNeural",       "name": "Sonia",       "gender": "female", "accent": "British",     "style": "Elegant",           "provider": "edge"},
+    {"id": "edge-en-GB-LibbyNeural",       "name": "Libby",       "gender": "female", "accent": "British",     "style": "Cheerful",          "provider": "edge"},
+    {"id": "edge-en-GB-MaisieNeural",      "name": "Maisie",      "gender": "female", "accent": "British",     "style": "Expressive",        "provider": "edge"},
+    {"id": "edge-en-GB-RyanNeural",        "name": "Ryan",        "gender": "male",   "accent": "British",     "style": "Conversational",    "provider": "edge"},
+    {"id": "edge-en-GB-ThomasNeural",      "name": "Thomas",      "gender": "male",   "accent": "British",     "style": "Formal",            "provider": "edge"},
+    # Australian English
+    {"id": "edge-en-AU-NatashaNeural",     "name": "Natasha",     "gender": "female", "accent": "Australian",  "style": "Bright",            "provider": "edge"},
+    {"id": "edge-en-AU-WilliamNeural",     "name": "William",     "gender": "male",   "accent": "Australian",  "style": "Relaxed",           "provider": "edge"},
+    # Indian English
+    {"id": "edge-en-IN-NeerjaNeural",      "name": "Neerja",      "gender": "female", "accent": "Indian",      "style": "Clear",             "provider": "edge"},
+    {"id": "edge-en-IN-PrabhatNeural",     "name": "Prabhat",     "gender": "male",   "accent": "Indian",      "style": "Steady",            "provider": "edge"},
+    # Irish / Canadian
+    {"id": "edge-en-IE-EmilyNeural",       "name": "Emily",       "gender": "female", "accent": "Irish",       "style": "Melodic",           "provider": "edge"},
+    {"id": "edge-en-CA-ClaraNeural",       "name": "Clara",       "gender": "female", "accent": "Canadian",    "style": "Warm",              "provider": "edge"},
+    {"id": "edge-en-CA-LiamNeural",        "name": "Liam",        "gender": "male",   "accent": "Canadian",    "style": "Smooth",            "provider": "edge"},
+]
+
+# ── Gemini TTS voices ─────────────────────────────────────────────────────────
 VOICES_GEMINI = [
     {"id": "en-US-Journey-F",   "name": "Journey (F)",   "gender": "female",  "accent": "American",  "provider": "gemini"},
     {"id": "en-US-Journey-D",   "name": "Journey (M)",   "gender": "male",    "accent": "American",  "provider": "gemini"},
@@ -51,10 +91,15 @@ VOICES_WEBSPEECH = [
     {"id": "webspeech-default", "name": "Browser Default", "gender": "neutral", "accent": "System", "provider": "webspeech"},
 ]
 
+# Default voice when nothing is selected — Aria is the most natural-sounding Edge voice
+DEFAULT_VOICE_ID = "edge-en-US-AriaNeural"
+
 
 def get_available_voices() -> list[dict]:
-    """Return all available voices grouped by provider."""
+    """Return all available voices, edge-tts first as the default provider."""
     voices = []
+    if _HAS_EDGE_TTS:
+        voices.extend(VOICES_EDGE)
     if _HAS_GEMINI:
         voices.extend(VOICES_GEMINI)
     if _HAS_OPENAI:
@@ -65,27 +110,37 @@ def get_available_voices() -> list[dict]:
 
 
 def _resolve_tts_provider(voice_id: str) -> str:
-    """Pick TTS provider based on config + voice_id prefix + availability."""
-    # Voice ID encodes provider
-    if voice_id.startswith("en-") or voice_id.startswith("en_"):
-        if _HAS_GEMINI:
-            return "gemini"
-    if voice_id in {v["id"] for v in VOICES_OPENAI}:
-        if _HAS_OPENAI:
-            return "openai"
+    """
+    Determine which TTS provider to use based on voice_id prefix and availability.
+
+    Priority:
+      edge-*   → edge-tts (free, always available if installed)
+      en-*     → gemini (if key set)
+      nova/alloy/echo/fable/onyx/shimmer → openai (if key set)
+      webspeech-* → webspeech
+      fallback chain: edge → gemini → openai → elevenlabs → webspeech
+    """
+    if voice_id.startswith("edge-") and _HAS_EDGE_TTS:
+        return "edge"
+    if (voice_id.startswith("en-") or voice_id.startswith("en_")) and _HAS_GEMINI:
+        return "gemini"
+    if voice_id in {v["id"] for v in VOICES_OPENAI} and _HAS_OPENAI:
+        return "openai"
     if voice_id.startswith("webspeech"):
         return "webspeech"
 
-    # Honour config preference
+    # Honour explicit config preference
     pref = settings.TTS_PROVIDER.lower()
+    if pref == "edge"       and _HAS_EDGE_TTS:  return "edge"
     if pref == "gemini"     and _HAS_GEMINI:     return "gemini"
     if pref == "openai"     and _HAS_OPENAI:     return "openai"
     if pref == "elevenlabs" and _HAS_ELEVENLABS: return "elevenlabs"
 
-    # Fallback chain
-    if _HAS_GEMINI:     return "gemini"
-    if _HAS_OPENAI:     return "openai"
-    if _HAS_ELEVENLABS: return "elevenlabs"
+    # Automatic fallback chain — edge-tts first (free, human-quality)
+    if _HAS_EDGE_TTS:    return "edge"
+    if _HAS_GEMINI:      return "gemini"
+    if _HAS_OPENAI:      return "openai"
+    if _HAS_ELEVENLABS:  return "elevenlabs"
     return "webspeech"
 
 
@@ -116,6 +171,55 @@ def compute_word_timestamps(text: str, speed: float) -> list[dict]:
         cursor = end
 
     return result
+
+
+# ── Edge TTS (Microsoft Azure Neural — free, no API key) ─────────────────────
+
+# Map our voice IDs (edge-en-US-AriaNeural) to the actual edge-tts voice name
+_EDGE_VOICE_MAP = {v["id"]: v["id"].removeprefix("edge-") for v in VOICES_EDGE}
+
+async def stream_tts_edge(
+    text: str, voice_id: str, speed: float
+) -> AsyncGenerator[str, None]:
+    """
+    Microsoft Azure Neural TTS via edge-tts — free, no API key, human-quality.
+    Voices are the same ones used in Microsoft Edge browser's read-aloud feature.
+    """
+    import edge_tts
+
+    timestamps = compute_word_timestamps(text, speed)
+    yield f"data: {json.dumps({'type': 'timestamps', 'data': timestamps})}\n\n"
+
+    # Resolve voice name: strip "edge-" prefix, default to Aria
+    edge_voice = _EDGE_VOICE_MAP.get(voice_id, "en-US-AriaNeural")
+
+    # Map speed to edge-tts rate string: 1.0 → "+0%", 1.5 → "+50%", 0.75 → "-25%"
+    rate_int = int((speed - 1.0) * 100)
+    rate_str = f"+{rate_int}%" if rate_int >= 0 else f"{rate_int}%"
+
+    try:
+        communicate = edge_tts.Communicate(text[:5000], edge_voice, rate=rate_str)
+        chunk_buffer = bytearray()
+
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                chunk_buffer.extend(chunk["data"])
+                if len(chunk_buffer) >= 8192:
+                    b64 = base64.b64encode(bytes(chunk_buffer)).decode()
+                    yield f"data: {json.dumps({'type': 'audio', 'chunk': b64})}\n\n"
+                    chunk_buffer.clear()
+
+        # Flush remaining audio
+        if chunk_buffer:
+            b64 = base64.b64encode(bytes(chunk_buffer)).decode()
+            yield f"data: {json.dumps({'type': 'audio', 'chunk': b64})}\n\n"
+
+    except Exception as exc:
+        logger.error("Edge TTS error (voice=%s): %s", edge_voice, exc)
+        # Fall back to webspeech rather than silence
+        yield f"data: {json.dumps({'type': 'use_webspeech', 'text': text, 'speed': speed})}\n\n"
+
+    yield 'data: {"type": "done"}\n\n'
 
 
 # ── Gemini TTS ────────────────────────────────────────────────────────────────
@@ -329,14 +433,17 @@ async def stream_tts_webspeech(text: str, speed: float) -> AsyncGenerator[str, N
 
 async def stream_tts(
     text: str,
-    voice_id: str = "en-US-Journey-F",
+    voice_id: str = "edge-en-US-AriaNeural",
     speed: float = 1.0,
 ) -> AsyncGenerator[str, None]:
     """Route TTS request to the appropriate provider."""
     provider = _resolve_tts_provider(voice_id)
     logger.debug("TTS provider=%s voice=%s speed=%.2f", provider, voice_id, speed)
 
-    if provider == "gemini":
+    if provider == "edge":
+        async for event in stream_tts_edge(text, voice_id, speed):
+            yield event
+    elif provider == "gemini":
         async for event in stream_tts_gemini(text, voice_id, speed):
             yield event
     elif provider == "elevenlabs":
@@ -346,6 +453,6 @@ async def stream_tts(
         async for event in stream_tts_openai(text, voice_id, speed):
             yield event
     else:
-        logger.info("TTS fallback: Web Speech API (no provider API key configured)")
+        logger.info("TTS: no provider available, using Web Speech API")
         async for event in stream_tts_webspeech(text, speed):
             yield event

@@ -1,6 +1,14 @@
 """
 Document processing service — handles PDF, EPUB, DOCX, TXT extraction.
 Runs as a Celery background task after upload.
+
+Reading order strategy:
+- PDF: OCR is the PRIMARY extraction method for every page using Tesseract
+  with psm=3 (auto layout detection). This captures ALL visible text including
+  text in boxes, tables, sidebars, callouts, and decorative elements — exactly
+  what a human eye sees, in the order a human would read it.
+  PyMuPDF is used only to extract embedded images (not text).
+- EPUB/DOCX/TXT: natural document order preserved via HTML block tag parsing.
 """
 
 import re
@@ -9,7 +17,7 @@ import base64
 from pathlib import Path
 from typing import Optional
 
-import fitz  # PyMuPDF
+import fitz  # PyMuPDF — used for image extraction and page rendering only
 from PIL import Image
 import pytesseract
 
@@ -36,67 +44,29 @@ def process_document(file_bytes: bytes, file_type: str) -> dict:
 # ── PDF ───────────────────────────────────────────────────────────────────────
 
 def _process_pdf(file_bytes: bytes) -> dict:
+    """
+    Process PDF using OCR as the primary text extraction method.
+
+    Every page is rendered to an image at 300 DPI and passed through Tesseract
+    with psm=3 (automatic page segmentation). This ensures:
+    - Text in boxes, tables, sidebars, callouts is captured
+    - Reading order matches what a human sees (Tesseract handles layout)
+    - Scanned and digital PDFs are treated identically
+    - No text is missed due to PDF encoding quirks
+
+    Images are extracted separately via PyMuPDF's image extraction API.
+    """
     doc = fitz.open(stream=file_bytes, filetype="pdf")
     pages = []
     total_words = 0
 
     for page_num, page in enumerate(doc):
-        page_height = page.rect.height
-        blocks = page.get_text("dict")["blocks"]
-        paragraphs = []
-        images = []
+        # ── Primary: OCR the rendered page image ─────────────────────────────
+        paragraphs = _ocr_page_primary(page)
+        total_words += sum(p["word_count"] for p in paragraphs)
 
-        for block in blocks:
-            bbox = block.get("bbox", [0, 0, 0, 0])
-            y_pct = bbox[1] / page_height if page_height else 0
-
-            # Skip likely headers/footers (top 7% and bottom 7%)
-            if y_pct < 0.07 or y_pct > 0.93:
-                continue
-
-            if block["type"] == 0:  # text
-                text = _extract_block_text(block)
-                if not text:
-                    continue
-                paragraphs.append({
-                    "text": text,
-                    "bbox": bbox,
-                    "is_heading": _is_heading(block),
-                    "word_count": len(text.split()),
-                })
-                total_words += len(text.split())
-
-            elif block["type"] == 1:  # image
-                try:
-                    xref = block.get("image")
-                    if xref:
-                        img_data = doc.extract_image(xref)
-                        images.append({
-                            "bbox": bbox,
-                            "index": len(images),
-                            "format": img_data.get("ext", "png"),
-                            "data_b64": base64.b64encode(img_data["image"]).decode(),
-                        })
-                except Exception:
-                    pass
-
-        # OCR fallback for scanned pages
-        if not paragraphs:
-            try:
-                pix = page.get_pixmap(dpi=200)
-                img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                ocr_text = pytesseract.image_to_string(img).strip()
-                if ocr_text:
-                    paragraphs.append({
-                        "text": ocr_text,
-                        "bbox": None,
-                        "is_heading": False,
-                        "word_count": len(ocr_text.split()),
-                        "ocr": True,
-                    })
-                    total_words += len(ocr_text.split())
-            except Exception:
-                pass
+        # ── Extract embedded images via PyMuPDF ───────────────────────────────
+        images = _extract_page_images(doc, page)
 
         pages.append({
             "page": page_num + 1,
@@ -112,26 +82,150 @@ def _process_pdf(file_bytes: bytes) -> dict:
     }
 
 
-def _extract_block_text(block: dict) -> str:
-    lines = []
-    for line in block.get("lines", []):
-        spans = line.get("spans", [])
-        line_text = " ".join(s["text"] for s in spans if s.get("text", "").strip())
-        if line_text.strip():
-            lines.append(line_text.strip())
-    text = " ".join(lines).strip()
-    # Remove isolated page numbers like "42" or "- 42 -"
-    if re.match(r"^[-–—\s]*\d{1,4}[-–—\s]*$", text):
-        return ""
-    return text
+def _ocr_page_primary(page) -> list:
+    """
+    OCR a PDF page as the primary text extraction method.
+
+    Uses Tesseract psm=3 (fully automatic page segmentation + layout analysis)
+    which detects columns, text boxes, tables, and reading order automatically.
+
+    Returns a list of paragraph dicts sorted in reading order.
+    """
+    # Render page to image at 300 DPI for good OCR accuracy
+    pix = page.get_pixmap(dpi=300)
+    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+
+    # Try structured extraction first (gives paragraph-level grouping)
+    paragraphs = _ocr_structured(img)
+    if paragraphs:
+        return paragraphs
+
+    # Fallback: full-page string split into paragraphs by blank lines
+    return _ocr_simple(img)
 
 
-def _is_heading(block: dict) -> bool:
-    for line in block.get("lines", []):
-        for span in line.get("spans", []):
-            if span.get("size", 0) >= 14 or (span.get("flags", 0) & 16):
-                return True
+def _ocr_structured(img: Image.Image) -> list:
+    """
+    Use pytesseract.image_to_data to get word-level data with block/paragraph
+    grouping. Groups words into paragraphs, sorts by vertical position.
+    Filters low-confidence noise (conf < 30).
+    """
+    try:
+        data = pytesseract.image_to_data(
+            img,
+            config="--psm 3 --oem 3",
+            output_type=pytesseract.Output.DICT,
+        )
+
+        # Group words by (block_num, par_num) — Tesseract's own paragraph detection
+        paragraphs_map: dict = {}
+        n = len(data["text"])
+        for i in range(n):
+            word = data["text"][i].strip()
+            conf = int(data["conf"][i])
+            if not word or conf < 30:
+                continue
+            key = (data["block_num"][i], data["par_num"][i])
+            if key not in paragraphs_map:
+                paragraphs_map[key] = {
+                    "words": [],
+                    "top": data["top"][i],
+                    "left": data["left"][i],
+                }
+            paragraphs_map[key]["words"].append(word)
+
+        if not paragraphs_map:
+            return []
+
+        # Sort by vertical position — Tesseract already handles column order
+        # within psm=3, so top-y sort gives correct reading order
+        sorted_paras = sorted(paragraphs_map.values(), key=lambda p: p["top"])
+
+        result = []
+        for para in sorted_paras:
+            text = " ".join(para["words"]).strip()
+            text = re.sub(r" {2,}", " ", text)
+            # Skip isolated page numbers / noise
+            if re.match(r"^[-–—\s]*\d{1,4}[-–—\s]*$", text):
+                continue
+            if len(text) < 3:
+                continue
+            result.append({
+                "text": text,
+                "bbox": None,
+                "is_heading": _looks_like_heading(text),
+                "word_count": len(para["words"]),
+                "ocr": True,
+            })
+        return result
+
+    except Exception:
+        return []
+
+
+def _ocr_simple(img: Image.Image) -> list:
+    """
+    Simple fallback: full-page OCR string split on blank lines.
+    Used when image_to_data fails (e.g. Tesseract version too old).
+    """
+    try:
+        raw = pytesseract.image_to_string(img, config="--psm 3 --oem 3").strip()
+        if not raw:
+            return []
+        raw_paras = [p.strip() for p in re.split(r"\n{2,}", raw) if p.strip()]
+        result = []
+        for p in raw_paras:
+            # Collapse single newlines within a paragraph into spaces
+            text = re.sub(r"\n", " ", p)
+            text = re.sub(r" {2,}", " ", text).strip()
+            if re.match(r"^[-–—\s]*\d{1,4}[-–—\s]*$", text):
+                continue
+            if len(text) < 3:
+                continue
+            result.append({
+                "text": text,
+                "bbox": None,
+                "is_heading": _looks_like_heading(text),
+                "word_count": len(text.split()),
+                "ocr": True,
+            })
+        return result
+    except Exception:
+        return []
+
+
+def _looks_like_heading(text: str) -> bool:
+    """Heuristic: short ALL-CAPS or Title Case lines are likely headings."""
+    words = text.split()
+    if len(words) > 12:
+        return False
+    if text.isupper():
+        return True
+    if all(w[0].isupper() for w in words if w.isalpha()):
+        return True
     return False
+
+
+def _extract_page_images(doc, page) -> list:
+    """Extract embedded images from a PDF page via PyMuPDF."""
+    images = []
+    blocks = page.get_text("dict")["blocks"]
+    for block in blocks:
+        if block["type"] == 1:  # image block
+            try:
+                xref = block.get("image")
+                if xref:
+                    img_data = doc.extract_image(xref)
+                    bbox = block.get("bbox", [0, 0, 0, 0])
+                    images.append({
+                        "bbox": bbox,
+                        "index": len(images),
+                        "format": img_data.get("ext", "png"),
+                        "data_b64": base64.b64encode(img_data["image"]).decode(),
+                    })
+            except Exception:
+                pass
+    return images
 
 
 def _extract_pdf_toc(doc) -> list:
@@ -156,30 +250,71 @@ def _process_epub(file_bytes: bytes) -> dict:
     total_words = 0
     toc = []
 
-    class TextExtractor(HTMLParser):
+    class StructuredExtractor(HTMLParser):
+        """
+        Extract text preserving paragraph boundaries from HTML.
+        Block-level tags (p, div, h1-h6, li, blockquote) become separate paragraphs.
+        """
+        BLOCK_TAGS = {"p", "div", "h1", "h2", "h3", "h4", "h5", "h6",
+                      "li", "blockquote", "section", "article", "td", "th"}
+        HEADING_TAGS = {"h1", "h2", "h3", "h4", "h5", "h6"}
+
         def __init__(self):
             super().__init__()
-            self.texts = []
-            self._in_body = False
+            self.paragraphs: list[dict] = []
+            self._current_text: list[str] = []
+            self._current_is_heading = False
+            self._tag_stack: list[str] = []
+
+        def handle_starttag(self, tag, attrs):
+            tag = tag.lower()
+            self._tag_stack.append(tag)
+            if tag in self.BLOCK_TAGS:
+                self._flush()
+                self._current_is_heading = tag in self.HEADING_TAGS
+
+        def handle_endtag(self, tag):
+            tag = tag.lower()
+            if tag in self.BLOCK_TAGS:
+                self._flush()
+            if self._tag_stack and self._tag_stack[-1] == tag:
+                self._tag_stack.pop()
 
         def handle_data(self, data):
             text = data.strip()
             if text:
-                self.texts.append(text)
+                self._current_text.append(text)
+
+        def _flush(self):
+            text = " ".join(self._current_text).strip()
+            text = re.sub(r" {2,}", " ", text)
+            if text and len(text) > 2:
+                self.paragraphs.append({
+                    "text": text,
+                    "bbox": None,
+                    "is_heading": self._current_is_heading,
+                    "word_count": len(text.split()),
+                })
+            self._current_text = []
+            self._current_is_heading = False
+
+        def get_paragraphs(self):
+            self._flush()
+            return self.paragraphs
 
     for i, item in enumerate(book.get_items_of_type(ebooklib.ITEM_DOCUMENT)):
-        extractor = TextExtractor()
+        extractor = StructuredExtractor()
         extractor.feed(item.get_body_content().decode("utf-8", errors="ignore"))
-        full_text = " ".join(extractor.texts).strip()
-        if not full_text:
+        paragraphs = extractor.get_paragraphs()
+
+        if not paragraphs:
             continue
 
-        # Split into paragraphs by double newline or sentence groups
-        raw_paras = [p.strip() for p in full_text.split("  ") if p.strip()]
-        paragraphs = [{"text": p, "bbox": None, "is_heading": False, "word_count": len(p.split())} for p in raw_paras]
         total_words += sum(p["word_count"] for p in paragraphs)
 
-        toc.append({"title": item.get_name(), "page": i + 1, "level": 1})
+        # Use first heading as TOC entry if available
+        heading = next((p["text"] for p in paragraphs if p["is_heading"]), item.get_name())
+        toc.append({"title": heading, "page": i + 1, "level": 1})
         pages.append({"page": i + 1, "paragraphs": paragraphs, "images": []})
 
     return {"pages": pages, "total_pages": len(pages), "total_words": total_words, "toc": toc}

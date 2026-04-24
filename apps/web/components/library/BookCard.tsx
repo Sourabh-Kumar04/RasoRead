@@ -26,14 +26,14 @@ interface BookCardProps {
 }
 
 const FILE_TYPE_COLORS: Record<string, string> = {
-  pdf: "bg-red-500/10 text-red-300",
-  epub: "bg-green-500/10 text-green-300",
-  docx: "bg-blue-500/10 text-blue-300",
-  txt: "bg-outline/10 text-outline",
+  pdf:  "bg-red-500/10 text-red-400 border border-red-500/20",
+  epub: "bg-green-500/10 text-green-400 border border-green-500/20",
+  docx: "bg-blue-500/10 text-blue-400 border border-blue-500/20",
+  txt:  "bg-zinc-800 text-zinc-400 border border-white/10",
 };
 
 const COVER_GRADIENTS = [
-  "from-purple-900/80 to-indigo-900/80",
+  "from-indigo-900/80 to-purple-900/80",
   "from-teal-900/80 to-cyan-900/80",
   "from-rose-900/80 to-pink-900/80",
   "from-amber-900/80 to-orange-900/80",
@@ -59,7 +59,7 @@ function DeleteConfirmModal({
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
         transition={{ duration: 0.15 }}
-        className="bg-surface-high border border-outline-variant/20 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl"
+        className="glass-card rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 mb-4">
@@ -67,28 +67,16 @@ function DeleteConfirmModal({
             <AlertTriangle size={18} className="text-red-400" />
           </div>
           <div>
-            <p className="font-label font-semibold text-[#dae2fd]">Delete book?</p>
-            <p className="font-label text-sm text-outline mt-0.5 line-clamp-1">"{title}"</p>
+            <p className="font-label font-semibold text-on-surface">Delete book?</p>
+            <p className="font-label text-sm text-zinc-400 mt-0.5 line-clamp-1">"{title}"</p>
           </div>
         </div>
-        <p className="font-label text-sm text-outline mb-5">
+        <p className="font-label text-sm text-zinc-400 mb-5">
           This will permanently remove the book and all your highlights, notes, and progress.
         </p>
         <div className="flex gap-3">
-          <button
-            onClick={onCancel}
-            className="flex-1 py-2 rounded-xl border border-outline-variant/30 font-label text-sm
-                       text-outline hover:bg-surface-highest/40 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            className="flex-1 py-2 rounded-xl bg-red-500/80 hover:bg-red-500 font-label text-sm
-                       text-white transition-colors"
-          >
-            Delete
-          </button>
+          <button onClick={onCancel} className="flex-1 py-2 rounded-lg border border-white/10 font-label text-sm text-zinc-400 hover:bg-white/5 transition-colors">Cancel</button>
+          <button onClick={onConfirm} className="flex-1 py-2 rounded-lg bg-red-500 hover:bg-red-600 font-label text-sm text-white transition-colors">Delete</button>
         </div>
       </motion.div>
     </div>
@@ -146,18 +134,12 @@ export function BookCard({ book, progress, onDelete }: BookCardProps) {
       </AnimatePresence>
 
       {/* Cover */}
-      <div className="aspect-[3/4] mb-3 rounded-xl overflow-hidden relative bg-surface-high shadow-lg">
+      <div className="aspect-[3/4] mb-3 rounded-xl overflow-hidden relative bg-white/[0.04] border border-white/[0.06] shadow-lg">
         {book.cover_url ? (
-          <img
-            src={book.cover_url}
-            alt={book.title}
-            className="w-full h-full object-cover"
-          />
+          <img src={book.cover_url} alt={book.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
         ) : (
-          <div className={cn("w-full h-full bg-gradient-to-b flex items-end p-4", gradient)}>
-            <p className="font-headline italic text-lg text-white/90 leading-tight line-clamp-3">
-              {book.title}
-            </p>
+          <div className={cn("w-full h-full bg-gradient-to-b flex items-end p-3", gradient)}>
+            <p className="font-headline italic text-sm text-white/90 leading-tight line-clamp-3">{book.title}</p>
           </div>
         )}
 
@@ -214,32 +196,16 @@ export function BookCard({ book, progress, onDelete }: BookCardProps) {
       </div>
 
       {/* Meta */}
-      <div className="space-y-1">
-        <h3
-          className="font-headline text-[#dae2fd] text-base leading-tight line-clamp-2
-                     group-hover:text-primary transition-colors"
-        >
+      <div className="space-y-0.5">
+        <h3 className="font-headline text-base font-medium text-zinc-200 leading-tight line-clamp-2 group-hover:text-white transition-colors">
           {book.title}
         </h3>
-        {book.author && (
-          <p className="font-label text-[10px] uppercase tracking-widest text-outline">
-            {book.author}
-          </p>
-        )}
-        <div className="flex items-center gap-2">
-          <span
-            className={cn(
-              "font-label text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded",
-              FILE_TYPE_COLORS[book.file_type] || FILE_TYPE_COLORS.txt
-            )}
-          >
+        {book.author && <p className="font-label text-xs text-zinc-600">{book.author}</p>}
+        <div className="flex items-center gap-2 pt-1">
+          <span className={cn("font-label text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded", FILE_TYPE_COLORS[book.file_type] || FILE_TYPE_COLORS.txt)}>
             {book.file_type}
           </span>
-          {pct > 0 && pct < 95 && (
-            <span className="font-label text-[9px] text-outline">
-              {Math.round(pct)}%
-            </span>
-          )}
+          {pct > 0 && pct < 95 && <span className="font-label text-[9px] text-zinc-600">{Math.round(pct)}%</span>}
         </div>
       </div>
     </motion.div>

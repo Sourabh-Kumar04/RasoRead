@@ -127,6 +127,58 @@ async def describe_image_endpoint(
     return AIResponse(content=description, type="description")
 
 
+# ── Cross-library search ──────────────────────────────────────────────────────
+
+@router.get("/search")
+async def search_library(
+    q: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Full-text semantic search across all of the user's books.
+    Uses the FAISS index for each ready book and returns ranked results.
+    """
+    if not q.strip():
+        return {"results": []}
+
+    from services.rag_service import _load_index
+    from pathlib import Path
+
+    # Get all ready books for this user
+    result = await db.execute(
+        select(Book).where(
+            Book.user_id == current_user.id,
+            Book.status == "ready",
+        )
+    )
+    books = result.scalars().all()
+
+    hits = []
+    for book in books:
+        try:
+            vs = _load_index(book.id)
+            if vs is None:
+                continue
+            docs = vs.similarity_search_with_score(q, k=2)
+            for doc, score in docs:
+                # Lower score = more similar in FAISS L2
+                if score < 1.5:
+                    hits.append({
+                        "book_id":    book.id,
+                        "book_title": book.title,
+                        "author":     book.author,
+                        "excerpt":    doc.page_content[:300],
+                        "score":      round(float(score), 3),
+                    })
+        except Exception:
+            continue
+
+    # Sort by relevance (ascending score = more relevant)
+    hits.sort(key=lambda x: x["score"])
+    return {"results": hits[:10], "query": q}
+
+
 # ── Helper ────────────────────────────────────────────────────────────────────
 
 async def _check_book(book_id: str, user_id: str, db: AsyncSession) -> Book:

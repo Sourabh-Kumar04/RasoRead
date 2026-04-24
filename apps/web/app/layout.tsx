@@ -3,6 +3,7 @@ import "./globals.css";
 import { ToastContainer } from "@/components/ui/Toast";
 import { MobileNav } from "@/components/ui/MobileNav";
 import { ServiceWorkerRegistrar } from "@/components/ui/ServiceWorkerRegistrar";
+import { PWAInstallPrompt } from "@/components/ui/PWAInstallPrompt";
 
 export const metadata: Metadata = {
   title: "RasoRead — Your Books, Now in Motion",
@@ -10,15 +11,10 @@ export const metadata: Metadata = {
   keywords: ["audiobook", "TTS", "reading", "AI", "PDF reader", "EPUB"],
   manifest: "/manifest.json",
   icons: { icon: "/favicon.svg" },
-  openGraph: {
-    title: "RasoRead",
-    description: "Your books, now in motion.",
-    type: "website",
-  },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0b1326",
+  themeColor: "#0A0A0A",
   width: "device-width",
   initialScale: 1,
 };
@@ -31,6 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ServiceWorkerRegistrar />
         {children}
         <MobileNav />
+        <PWAInstallPrompt />
         <ToastContainer />
       </body>
     </html>

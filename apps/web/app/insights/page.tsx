@@ -29,14 +29,13 @@ export default function InsightsPage() {
   const maxEvents = Math.max(...daily.map((d: any) => d.events), 1);
 
   return (
-    <div className="min-h-screen bg-surface">
-      <header className="fixed top-0 left-0 right-0 z-50 h-16 flex items-center justify-between px-6
-                         bg-surface/70 glass border-b border-outline-variant/10">
+    <div className="min-h-screen bg-[#0A0A0A] text-on-surface">
+      <header className="fixed top-0 left-0 right-0 z-50 h-20 flex items-center justify-between px-10 bg-[#0A0A0A]/80 backdrop-blur-[20px] border-b border-white/10 shadow-[0_20px_40px_rgba(99,102,241,0.1)]">
         <div className="flex items-center gap-3">
-          <button onClick={() => router.push("/library")} className="p-2 rounded-xl hover:bg-white/5">
-            <ArrowLeft size={16} className="text-secondary" />
+          <button onClick={() => router.push("/library")} className="p-2 rounded-xl hover:bg-white/5 transition-colors">
+            <ArrowLeft size={16} className="text-zinc-400" />
           </button>
-          <span className="font-headline italic text-lg text-[#dae2fd]">AI Insights</span>
+          <span className="font-headline italic text-lg text-white">AI Insights</span>
         </div>
       </header>
 
@@ -59,24 +58,22 @@ export default function InsightsPage() {
                   key={label}
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="p-5 rounded-2xl bg-surface-low border border-outline-variant/10 space-y-3"
+                  className="p-5 rounded-xl glass-card space-y-3"
                 >
                   <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                     <Icon size={18} className="text-primary" />
                   </div>
                   <div>
-                    <p className="font-label text-[10px] uppercase tracking-widest text-outline">{label}</p>
-                    <p className="font-headline text-3xl text-[#dae2fd]">{value}</p>
+                    <p className="font-label text-[10px] uppercase tracking-widest text-slate-400">{label}</p>
+                    <p className="font-headline text-3xl text-on-surface">{value}</p>
                   </div>
                 </motion.div>
               ))}
             </div>
 
             {/* Activity chart */}
-            <div className="p-6 rounded-2xl bg-surface-low border border-outline-variant/10">
-              <p className="font-label text-xs uppercase tracking-widest text-outline mb-6">
-                Activity — last 7 days
-              </p>
+            <div className="p-6 rounded-xl glass-card">
+              <p className="font-label text-[10px] uppercase tracking-widest text-zinc-500 mb-6">Activity — last 7 days</p>
               <div className="flex items-end gap-3 h-32">
                 {daily.slice(-7).map((d: any, i: number) => {
                   const h = Math.max(8, (d.events / maxEvents) * 112);
@@ -85,7 +82,7 @@ export default function InsightsPage() {
                       <motion.div
                         initial={{ height: 0 }}
                         animate={{ height: h }}
-                        className="w-full rounded-t-lg bg-primary/30 hover:bg-primary/50 transition-colors cursor-default"
+                        className="w-full rounded-t-lg bg-primary/20 hover:bg-primary/40 transition-colors cursor-default"
                         title={`${d.events} events`}
                       />
                       <span className="font-label text-[9px] text-outline">{d.date?.slice(5) || ""}</span>
@@ -97,10 +94,8 @@ export default function InsightsPage() {
 
             {/* Most highlighted */}
             {analytics?.most_highlighted_books?.length > 0 && (
-              <div className="p-6 rounded-2xl bg-surface-low border border-outline-variant/10">
-                <p className="font-label text-xs uppercase tracking-widest text-outline mb-4">
-                  Most highlighted books
-                </p>
+              <div className="p-6 rounded-xl glass-card">
+                <p className="font-label text-[10px] uppercase tracking-widest text-zinc-500 mb-4">Most highlighted books</p>
                 <div className="space-y-3">
                   {analytics.most_highlighted_books.map((item: any, i: number) => {
                     const book = books.find((b) => b.id === item.book_id);
@@ -108,9 +103,7 @@ export default function InsightsPage() {
                       <div key={i} className="flex items-center gap-4">
                         <span className="font-label text-xs text-outline w-4">{i + 1}</span>
                         <div className="flex-1 min-w-0">
-                          <p className="font-label text-sm text-[#dae2fd] truncate">
-                            {book?.title || "Unknown"}
-                          </p>
+                          <p className="font-label text-sm text-on-surface truncate">{book?.title || "Unknown"}</p>
                         </div>
                         <span className="font-label text-xs text-primary shrink-0">
                           {item.highlight_count} highlights
@@ -124,26 +117,19 @@ export default function InsightsPage() {
 
             {/* Event breakdown */}
             {analytics?.event_counts && Object.keys(analytics.event_counts).length > 0 && (
-              <div className="p-6 rounded-2xl bg-surface-low border border-outline-variant/10">
-                <p className="font-label text-xs uppercase tracking-widest text-outline mb-4">
-                  Event breakdown
-                </p>
+              <div className="p-6 rounded-xl glass-card">
+                <p className="font-label text-[10px] uppercase tracking-widest text-zinc-500 mb-4">Event breakdown</p>
                 <div className="space-y-2">
                   {Object.entries(analytics.event_counts).map(([type, count]: any) => {
                     const total = Object.values(analytics.event_counts).reduce((a: any, b: any) => Number(a) + Number(b), 0) as number;
                     const pct = Math.round((Number(count) / total) * 100);
                     return (
                       <div key={type} className="flex items-center gap-3">
-                        <span className="font-label text-xs text-outline w-32 capitalize">
-                          {type.replace(/_/g, " ")}
-                        </span>
-                        <div className="flex-1 h-1.5 bg-surface-highest rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-primary/60 rounded-full"
-                            style={{ width: `${pct}%` }}
-                          />
+                        <span className="font-label text-xs text-zinc-400 w-32 capitalize">{type.replace(/_/g, " ")}</span>
+                        <div className="flex-1 h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+                          <div className="h-full bg-primary/60 rounded-full" style={{ width: `${pct}%` }} />
                         </div>
-                        <span className="font-label text-xs text-outline w-8 text-right">{count}</span>
+                        <span className="font-label text-xs text-zinc-500 w-8 text-right">{count}</span>
                       </div>
                     );
                   })}

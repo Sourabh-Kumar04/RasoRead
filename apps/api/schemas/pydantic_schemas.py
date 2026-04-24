@@ -141,7 +141,7 @@ class BookmarkOut(BaseModel):
 
 class TTSRequest(BaseModel):
     text: str = Field(max_length=5000)
-    voice_id: str = "nova"
+    voice_id: str = "edge-en-US-AriaNeural"
     speed: float = Field(default=1.0, ge=0.25, le=4.0)
     book_id: Optional[str] = None
 
