@@ -31,6 +31,7 @@ export default function LibraryPage() {
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   const fetchBooks = async () => {

@@ -40,8 +40,8 @@ export default function LoginPage() {
         
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-24 group cursor-pointer" onClick={() => router.push("/")}>
-            <div className="w-10 h-10 rounded-2xl bg-white text-black flex items-center justify-center transition-transform group-hover:rotate-12">
-              <BookOpen size={20} weight="bold" />
+            <div className="w-10 h-10 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center transition-transform group-hover:scale-105">
+              <Headphones size={20} className="text-primary" />
             </div>
             <span className="text-xl font-bold tracking-tight text-white">RasoRead</span>
           </div>
