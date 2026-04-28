@@ -16,9 +16,12 @@ setup_logging()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    import os
     # Ensure local upload directory exists
     Path(settings.LOCAL_STORAGE_PATH).mkdir(parents=True, exist_ok=True)
-    Path("./faiss_indexes").mkdir(exist_ok=True)
+    # FAISS index dir — use env var so it can be a named Docker volume
+    faiss_dir = os.environ.get("FAISS_INDEX_DIR", "./faiss_indexes")
+    Path(faiss_dir).mkdir(parents=True, exist_ok=True)
 
     # Create DB tables (Alembic handles migrations in production)
     async with engine.begin() as conn:

@@ -1,124 +1,117 @@
-"""
+﻿"""
 Rate limiter + daily usage quotas for RasoRead.
-
-Two layers:
-  1. Burst rate limits  — short windows (per minute/hour), in-memory sliding window
-  2. Daily quotas       — per-user daily caps stored in-memory (reset at midnight UTC)
-     These prevent cost explosions from a single user hammering TTS/AI.
-
-In production: replace _counters and _daily_usage with Redis for multi-instance support.
+Redis-backed when available, in-memory fallback for local dev.
 """
 import time
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Optional
-
 from fastapi import Request, HTTPException, status
 from starlette.middleware.base import BaseHTTPMiddleware
 
-# ── Burst rate limits ─────────────────────────────────────────────────────────
-# path_prefix: (max_requests, window_seconds)
-RATE_LIMITS: dict[str, tuple[int, int]] = {
-    "/tts/stream":   (30, 60),     # 30 TTS calls per minute
-    "/ai/":          (20, 60),     # 20 AI calls per minute
-    "/books/upload": (10, 3600),   # 10 uploads per hour
-}
+RATE_LIMITS = {"/tts/stream": (30, 60), "/ai/": (20, 60), "/books/upload": (10, 3600)}
+DAILY_QUOTAS = {"/tts/stream": 200, "/ai/": 50, "/books/upload": 20}
 
-# ── Daily quotas (free tier) ──────────────────────────────────────────────────
-# path_prefix: max_per_day
-DAILY_QUOTAS: dict[str, int] = {
-    "/tts/stream":   200,   # 200 TTS streams per day (~3h of audio)
-    "/ai/":          50,    # 50 AI queries per day
-    "/books/upload": 20,    # 20 book uploads per day
-}
+_redis = None
 
-# In-memory stores (replace with Redis in production)
-_counters:    dict[str, list[float]] = defaultdict(list)
-_daily_usage: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
-_daily_date:  dict[str, str] = {}   # user_key → last reset date (YYYY-MM-DD)
+def _get_redis():
+    global _redis
+    if _redis is not None:
+        return _redis
+    try:
+        import redis as r
+        from core.config import settings
+        c = r.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=1)
+        c.ping()
+        _redis = c
+        return _redis
+    except Exception:
+        return None
 
+_mem_counters = defaultdict(list)
+_mem_daily = defaultdict(lambda: defaultdict(int))
+_mem_daily_date = {}
 
-def _get_user_key(request: Request) -> str:
-    """Extract user identifier from JWT token prefix or IP."""
+def _get_user_key(request):
     auth = request.headers.get("Authorization", "")
     if auth.startswith("Bearer "):
-        return f"token:{auth[7:23]}"
-    return f"ip:{request.client.host if request.client else 'unknown'}"
+        return "token:" + auth[7:23]
+    host = request.client.host if request.client else "unknown"
+    return "ip:" + host
 
+def _today():
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-def _reset_daily_if_needed(user_key: str) -> None:
-    """Reset daily counters if the date has changed."""
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    if _daily_date.get(user_key) != today:
-        _daily_usage[user_key] = defaultdict(int)
-        _daily_date[user_key] = today
+def _burst_redis(r, key, prefix, max_req, window):
+    b = "rl:burst:" + key + ":" + prefix
+    now = time.time()
+    p = r.pipeline()
+    p.zremrangebyscore(b, 0, now - window)
+    p.zcard(b)
+    p.zadd(b, {str(now): now})
+    p.expire(b, window + 1)
+    res = p.execute()
+    if res[1] >= max_req:
+        raise HTTPException(429, "Rate limit exceeded. Try again in " + str(window) + "s.", headers={"Retry-After": str(window)})
 
+def _daily_redis(r, key, prefix, limit):
+    b = "rl:daily:" + key + ":" + prefix + ":" + _today()
+    used = r.incr(b)
+    if used == 1:
+        r.expire(b, 90000)
+    if used > limit:
+        raise HTTPException(429, "Daily limit of " + str(limit) + " reached. Resets midnight UTC.", headers={"Retry-After": "86400"})
 
-def check_rate_limit(key: str, path: str) -> None:
-    """
-    Check both burst rate limit and daily quota.
-    Raises HTTP 429 if either is exceeded.
-    """
+def _burst_mem(key, prefix, max_req, window):
+    b = key + ":" + prefix
+    now = time.time()
+    _mem_counters[b] = [t for t in _mem_counters[b] if now - t < window]
+    if len(_mem_counters[b]) >= max_req:
+        raise HTTPException(429, "Rate limit exceeded.", headers={"Retry-After": str(window)})
+    _mem_counters[b].append(now)
+
+def _daily_mem(key, prefix, limit):
+    today = _today()
+    if _mem_daily_date.get(key) != today:
+        _mem_daily[key] = defaultdict(int)
+        _mem_daily_date[key] = today
+    if _mem_daily[key][prefix] >= limit:
+        raise HTTPException(429, "Daily limit of " + str(limit) + " reached. Resets midnight UTC.", headers={"Retry-After": "86400"})
+    _mem_daily[key][prefix] += 1
+
+def check_rate_limit(key, path):
     for prefix in RATE_LIMITS:
         if not path.startswith(prefix):
             continue
-
         max_req, window = RATE_LIMITS[prefix]
-        bucket_key = f"{key}:{prefix}"
-        now = time.time()
-
-        # ── Burst check ───────────────────────────────────────────────────────
-        _counters[bucket_key] = [
-            ts for ts in _counters[bucket_key] if now - ts < window
-        ]
-        if len(_counters[bucket_key]) >= max_req:
-            reset_in = int(window - (now - _counters[bucket_key][0]))
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"Rate limit exceeded. Retry in {reset_in}s.",
-                headers={"Retry-After": str(reset_in)},
-            )
-        _counters[bucket_key].append(now)
-
-        # ── Daily quota check ─────────────────────────────────────────────────
-        if prefix in DAILY_QUOTAS:
-            _reset_daily_if_needed(key)
-            used  = _daily_usage[key][prefix]
-            limit = DAILY_QUOTAS[prefix]
-            if used >= limit:
-                raise HTTPException(
-                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail=(
-                        f"Daily limit of {limit} requests reached for this feature. "
-                        "Resets at midnight UTC."
-                    ),
-                    headers={"Retry-After": "86400", "X-Daily-Limit": str(limit)},
-                )
-            _daily_usage[key][prefix] += 1
-
+        r = _get_redis()
+        if r:
+            _burst_redis(r, key, prefix, max_req, window)
+            if prefix in DAILY_QUOTAS:
+                _daily_redis(r, key, prefix, DAILY_QUOTAS[prefix])
+        else:
+            _burst_mem(key, prefix, max_req, window)
+            if prefix in DAILY_QUOTAS:
+                _daily_mem(key, prefix, DAILY_QUOTAS[prefix])
         break
 
-
-def get_daily_usage(key: str) -> dict[str, dict]:
-    """Return current daily usage stats for a user key (for /me endpoint)."""
-    _reset_daily_if_needed(key)
+def get_daily_usage(key):
+    today = _today()
     result = {}
+    r = _get_redis()
     for prefix, limit in DAILY_QUOTAS.items():
-        used = _daily_usage[key].get(prefix, 0)
+        if r:
+            used = int(r.get("rl:daily:" + key + ":" + prefix + ":" + today) or 0)
+        else:
+            used = 0 if _mem_daily_date.get(key) != today else _mem_daily[key].get(prefix, 0)
         result[prefix] = {"used": used, "limit": limit, "remaining": max(0, limit - used)}
     return result
 
-
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        user_key = _get_user_key(request)
+    async def dispatch(self, request, call_next):
+        key = _get_user_key(request)
         try:
-            check_rate_limit(user_key, request.url.path)
+            check_rate_limit(key, request.url.path)
         except HTTPException as exc:
             from fastapi.responses import JSONResponse
-            return JSONResponse(
-                status_code=exc.status_code,
-                content={"detail": exc.detail},
-                headers=exc.headers or {},
-            )
+            return JSONResponse(exc.status_code, {"detail": exc.detail}, headers=exc.headers or {})
         return await call_next(request)

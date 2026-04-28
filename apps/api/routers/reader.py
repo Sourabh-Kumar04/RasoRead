@@ -25,27 +25,31 @@ async def _get_book_bytes(book: Book) -> bytes:
     raise HTTPException(404, "Book file not found in storage")
 
 
-def _render_page(file_bytes: bytes, page_num: int, dpi: int) -> dict:
-    """Render a single PDF page to base64 PNG. page_num is 1-based."""
-    doc = fitz.open(stream=file_bytes, filetype="pdf")
+def _render_page_from_doc(doc, page_num: int, dpi: int) -> dict:
+    """Render a single PDF page from an already-open fitz.Document."""
     if page_num < 1 or page_num > len(doc):
-        doc.close()
         raise HTTPException(404, f"Page {page_num} not found (book has {len(doc)} pages)")
     fitz_page = doc[page_num - 1]
     mat = fitz.Matrix(dpi / 72, dpi / 72)
     pix = fitz_page.get_pixmap(matrix=mat, colorspace=fitz.csRGB)
     img_b64 = base64.b64encode(pix.tobytes("png")).decode("utf-8")
-    pdf_width  = fitz_page.rect.width
-    pdf_height = fitz_page.rect.height
-    doc.close()
     return {
         "page":       page_num,
         "image_b64":  img_b64,
         "width":      pix.width,
         "height":     pix.height,
-        "pdf_width":  pdf_width,
-        "pdf_height": pdf_height,
+        "pdf_width":  fitz_page.rect.width,
+        "pdf_height": fitz_page.rect.height,
     }
+
+
+def _render_page(file_bytes: bytes, page_num: int, dpi: int) -> dict:
+    """Render a single PDF page to base64 PNG. page_num is 1-based."""
+    doc = fitz.open(stream=file_bytes, filetype="pdf")
+    try:
+        return _render_page_from_doc(doc, page_num, dpi)
+    finally:
+        doc.close()
 
 
 @router.get("/{book_id}/page-image")
@@ -96,22 +100,21 @@ async def get_pages_buffer(
         file_bytes = await _get_book_bytes(book)
         doc = fitz.open(stream=file_bytes, filetype="pdf")
         total = len(doc)
-        doc.close()
     except HTTPException:
         raise
     except Exception as exc:
         raise HTTPException(500, f"Could not open book: {exc}")
 
-    # Clamp page range to valid bounds
     pages_to_render = [p for p in range(start, start + count) if 1 <= p <= total]
-
-    # Render pages (synchronously — fitz is not async-safe to parallelize)
     results = []
-    for p in pages_to_render:
-        try:
-            results.append(_render_page(file_bytes, p, dpi))
-        except Exception:
-            pass  # skip failed pages silently
+    try:
+        for p in pages_to_render:
+            try:
+                results.append(_render_page_from_doc(doc, p, dpi))
+            except Exception:
+                pass
+    finally:
+        doc.close()
 
     return {"pages": results, "total_pages": total}
 
@@ -150,7 +153,7 @@ async def get_progress(
     )
     progress = result.scalar_one_or_none()
     if not progress:
-        raise HTTPException(404, "No progress found — start reading first")
+        raise HTTPException(404, "No progress found â€” start reading first")
     return progress
 
 
@@ -186,7 +189,7 @@ async def save_progress(
             char_offset=body.char_offset,
             completion_pct=body.completion_pct or 0.0,
             tts_speed=body.tts_speed or 1.0,
-            voice_id=body.voice_id or "nova",
+            voice_id=body.voice_id or "edge-en-US-AriaNeural",
         )
         db.add(progress)
 
@@ -198,7 +201,7 @@ async def save_progress(
         event_metadata={"page": body.current_page, "pct": body.completion_pct},
     )
     db.add(event)
-
+    await db.commit()
     return progress
 
 
@@ -233,6 +236,7 @@ async def add_bookmark(
     )
     db.add(bm)
     await db.flush()
+    await db.commit()
     return bm
 
 
@@ -253,6 +257,7 @@ async def delete_bookmark(
     if not bm:
         raise HTTPException(404, "Bookmark not found")
     await db.delete(bm)
+    await db.commit()
 
 
 async def _get_book(book_id: str, user_id: str, db: AsyncSession) -> Book:

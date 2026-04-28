@@ -54,7 +54,8 @@ export function PageImageViewer({
       // Determine which pages we actually need to fetch
       const needed: number[] = [];
       for (let p = startPage; p <= Math.min(startPage + BUFFER_AHEAD, totalPages); p++) {
-        if (!imageCache.has(p) && !fetchingRef.current.has(p)) {
+        if (!fetchingRef.current.has(p)) {
+          // Check cache via functional update to avoid stale closure
           needed.push(p);
           fetchingRef.current.add(p);
         }
@@ -76,7 +77,8 @@ export function PageImageViewer({
         for (const p of needed) fetchingRef.current.delete(p);
       }
     },
-    [bookId, totalPages, imageCache]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [bookId, totalPages, currentPage]
   );
 
   // ── Fetch current + buffer whenever page changes ───────────────────────────
@@ -94,7 +96,14 @@ export function PageImageViewer({
   // ── Scroll active paragraph highlight into view ────────────────────────────
   useEffect(() => {
     if (activeRef.current && isPlaying) {
-      activeRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      const container = document.getElementById("reader-scroll");
+      if (container) {
+        const el = activeRef.current;
+        const elTop = el.getBoundingClientRect().top;
+        const containerTop = container.getBoundingClientRect().top;
+        const offset = elTop - containerTop + container.scrollTop - container.clientHeight / 2;
+        container.scrollTo({ top: offset, behavior: "smooth" });
+      }
     }
   }, [activeParagraphIndex, isPlaying]);
 
@@ -126,20 +135,25 @@ export function PageImageViewer({
       >
         {/* ── Book page shadow + border — real book feel ─────────────────── */}
         <div
-          className="relative mx-auto rounded-sm overflow-hidden"
+          className="relative mx-auto overflow-hidden"
           style={{
-            boxShadow:
-              "0 2px 8px rgba(0,0,0,0.4), 0 8px 32px rgba(0,0,0,0.5), 4px 0 12px rgba(0,0,0,0.2)",
             maxWidth: "860px",
+            borderRadius: "2px",
+            outline: "1px solid rgba(255,255,255,0.08)",
+            boxShadow:
+              "0 1px 4px rgba(0,0,0,0.5), 0 8px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04)",
           }}
         >
-          {/* Rendered PDF page image */}
-          <img
-            src={`data:image/png;base64,${image_b64}`}
-            alt={`Page ${currentPage}`}
-            className="w-full h-auto block"
-            draggable={false}
-          />
+          {/* White page background so PDF content is always visible on dark theme */}
+          <div className="bg-white">
+            {/* Rendered PDF page image */}
+            <img
+              src={`data:image/png;base64,${image_b64}`}
+              alt={`Page ${currentPage}`}
+              className="w-full h-auto block"
+              draggable={false}
+            />
+          </div>
 
           {/* ── TTS paragraph highlight overlays ─────────────────────────── */}
           {pageData?.paragraphs.map((para, idx) => {
@@ -162,8 +176,8 @@ export function PageImageViewer({
                   width:  `${((x1 - x0) / pdf_width)  * 100}%`,
                   height: `${((y1 - y0) / pdf_height)  * 100}%`,
                   background: isActive
-                    ? "rgba(34, 197, 94, 0.28)"   // green highlight — active paragraph
-                    : "rgba(0, 0, 0, 0.18)",       // dim — already spoken
+                    ? "rgba(34, 197, 94, 0.28)"
+                    : "rgba(0, 0, 0, 0.18)",
                   boxShadow: isActive
                     ? "inset 0 0 0 1.5px rgba(34, 197, 94, 0.5)"
                     : "none",

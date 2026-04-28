@@ -61,13 +61,29 @@ export function DocumentViewer({ bookId, tts, onBookEnd }: DocumentViewerProps) 
 
   // ── Scroll active paragraph into view during TTS ──────────────────────────
   useEffect(() => {
-    if (activeSentenceRef.current && store.isPlaying)
-      activeSentenceRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    if (activeSentenceRef.current && store.isPlaying) {
+      const container = document.getElementById("reader-scroll");
+      if (container) {
+        const el = activeSentenceRef.current;
+        const elTop = el.getBoundingClientRect().top;
+        const containerTop = container.getBoundingClientRect().top;
+        const offset = elTop - containerTop + container.scrollTop - container.clientHeight / 2;
+        container.scrollTo({ top: offset, behavior: "smooth" });
+      }
+    }
   }, [store.activeWordIndex, store.isPlaying]);
 
   useEffect(() => {
-    if (activeParagraphRef.current && !store.isPlaying)
-      activeParagraphRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (activeParagraphRef.current && !store.isPlaying) {
+      const container = document.getElementById("reader-scroll");
+      if (container) {
+        const el = activeParagraphRef.current;
+        const elTop = el.getBoundingClientRect().top;
+        const containerTop = container.getBoundingClientRect().top;
+        const offset = elTop - containerTop + container.scrollTop - container.clientHeight / 2;
+        container.scrollTo({ top: offset, behavior: "smooth" });
+      }
+    }
   }, [store.activeParagraphIndex, store.isPlaying]);
 
   // ── Highlight handler ─────────────────────────────────────────────────────
@@ -95,6 +111,14 @@ export function DocumentViewer({ bookId, tts, onBookEnd }: DocumentViewerProps) 
     (text: string, _range: Range) => {
       setPendingNoteText(text);
       store.toggleSmartPanel("notes");
+    },
+    [store]
+  );
+
+  const handleAskAI = useCallback(
+    (text: string) => {
+      store.setAiQuestion(`Explain this: "${text}"`);
+      store.toggleSmartPanel("ai");
     },
     [store]
   );
@@ -132,7 +156,11 @@ export function DocumentViewer({ bookId, tts, onBookEnd }: DocumentViewerProps) 
   // if the page-image endpoint returns an error (e.g. EPUB/DOCX/TXT)
   return (
     <>
-      <HighlightMenu onHighlight={handleHighlight} onNote={handleNoteFromSelection} />
+      <HighlightMenu 
+        onHighlight={handleHighlight} 
+        onNote={handleNoteFromSelection} 
+        onAskAI={handleAskAI}
+      />
 
       {modalImage && (
         <ImageModal
@@ -156,6 +184,7 @@ export function DocumentViewer({ bookId, tts, onBookEnd }: DocumentViewerProps) 
         handleParagraphDoubleClick={handleParagraphDoubleClick}
         handleHighlight={handleHighlight}
         handleNoteFromSelection={handleNoteFromSelection}
+        handleAskAI={handleAskAI}
       />
     </>
   );
@@ -176,13 +205,17 @@ function BookPageView({
   handleParagraphDoubleClick,
   handleHighlight,
   handleNoteFromSelection,
+  handleAskAI,
 }: any) {
   const [useTextFallback, setUseTextFallback] = useState(false);
 
   // If page image fails to load (EPUB/DOCX/TXT), fall back to text rendering
   const handleImageFailed = useCallback(() => setUseTextFallback(true), []);
 
-  if (!useTextFallback) {
+  // Use the viewMode from the store, but override if fallback is required
+  const effectiveViewMode = useTextFallback ? "text" : store.viewMode;
+
+  if (effectiveViewMode === "original") {
     return (
       <div className="max-w-4xl mx-auto px-4 py-4">
         <PageImageViewer
@@ -230,7 +263,7 @@ function BookPageView({
                     ref={isActive ? activeParagraphRef : null}
                     className={cn(
                       "reader-text rounded-xl transition-all duration-300 cursor-text -mx-4 px-4 py-2",
-                      isActive && "bg-emerald-500/10 ring-1 ring-emerald-400/30",
+                      isActive && "bg-primary/5 ring-1 ring-primary/20 shadow-[0_0_40px_rgba(99,102,241,0.08)]",
                       isSpoken && "opacity-40"
                     )}
                     onDoubleClick={() => handleParagraphDoubleClick(para.text, paraIndex)}
@@ -249,7 +282,7 @@ function BookPageView({
                               ref={isSentActive ? activeSentenceRef : null}
                               className={cn(
                                 "transition-all duration-300 rounded-sm",
-                                isSentActive && "bg-emerald-500/20 ring-1 ring-emerald-400/25",
+                                isSentActive && "bg-primary/10 ring-1 ring-primary/20",
                                 isSentSpoken && "opacity-40"
                               )}
                             >

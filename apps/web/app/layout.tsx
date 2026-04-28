@@ -19,13 +19,21 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
+import { PageTransition } from "@/components/ui/PageTransition";
+import { CustomCursor } from "@/components/ui/CustomCursor";
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="dark">
-      <head />
-      <body>
+      <head>
+        <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet" />
+      </head>
+      <body className="">
         <ServiceWorkerRegistrar />
-        {children}
+        <CustomCursor />
+        <PageTransition>
+          {children}
+        </PageTransition>
         <MobileNav />
         <PWAInstallPrompt />
         <ToastContainer />

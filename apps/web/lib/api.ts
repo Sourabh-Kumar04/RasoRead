@@ -52,6 +52,7 @@ export const authApi = {
   me: () => api.get("/auth/me"),
   updateSettings: (settings: Record<string, unknown>) =>
     api.patch("/auth/settings", settings),
+  deleteAccount: () => api.delete("/auth/me"),
 };
 
 // â”€â”€ Books â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

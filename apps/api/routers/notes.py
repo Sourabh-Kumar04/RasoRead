@@ -46,6 +46,13 @@ async def list_highlights(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    # Verify book belongs to user before returning highlights
+    book_check = await db.execute(
+        select(Book).where(Book.id == book_id, Book.user_id == current_user.id)
+    )
+    if not book_check.scalar_one_or_none():
+        raise HTTPException(404, "Book not found")
+
     result = await db.execute(
         select(Highlight).where(
             Highlight.book_id == book_id,
@@ -72,6 +79,7 @@ async def create_highlight(
     )
     db.add(h)
     await db.flush()
+    await db.commit()
     return h
 
 
@@ -91,6 +99,7 @@ async def delete_highlight(
     if not h:
         raise HTTPException(404, "Highlight not found")
     await db.delete(h)
+    await db.commit()
 
 
 # ── Notes ─────────────────────────────────────────────────────────────────────
@@ -127,6 +136,7 @@ async def create_note(
     )
     db.add(note)
     await db.flush()
+    await db.commit()
     return note
 
 
@@ -143,3 +153,4 @@ async def delete_note(
     if not note:
         raise HTTPException(404, "Note not found")
     await db.delete(note)
+    await db.commit()

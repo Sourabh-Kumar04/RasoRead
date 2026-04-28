@@ -3,12 +3,20 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Loader2, Headphones } from "lucide-react";
+import { Loader2, Eye, EyeOff, Headphones, Check } from "lucide-react";
 import { authApi } from "@/lib/api";
+
+const PERKS = [
+  "Upload unlimited books (PDF, EPUB, DOCX, TXT)",
+  "20+ human-quality neural voices",
+  "AI summaries, Q&A, and highlights",
+  "Reading streaks & progress tracking",
+];
 
 export default function RegisterPage() {
   const router = useRouter();
   const [form, setForm] = useState({ name: "", email: "", password: "", confirm: "" });
+  const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -27,87 +35,160 @@ export default function RegisterPage() {
       localStorage.setItem("rasoread_refresh_token", res.data.refresh_token);
       router.push("/library");
     } catch (err: any) {
-      setError(err?.response?.data?.detail || "Registration failed");
+      setError(err?.response?.data?.detail || "Registration failed. Try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center px-4">
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-primary/5 blur-[120px] rounded-full" />
-      </div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="w-full max-w-sm relative z-10"
-      >
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 mb-4">
-            <Headphones size={22} className="text-primary" />
+    <div className="min-h-screen bg-black flex selection:bg-primary/30">
+      <div className="fixed inset-0 bg-grid opacity-10 pointer-events-none" />
+      
+      {/* ── Visual Panel ────────────────────────────────────────────────── */}
+      <div className="hidden lg:flex flex-col justify-between w-[500px] shrink-0 p-16 border-r border-white/5 bg-zinc-950 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-50" />
+        
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-24 group cursor-pointer" onClick={() => router.push("/")}>
+            <div className="w-10 h-10 rounded-2xl bg-white text-black flex items-center justify-center transition-transform group-hover:rotate-12">
+              <BookOpen size={20} weight="bold" />
+            </div>
+            <span className="text-xl font-bold tracking-tight text-white">RasoRead</span>
           </div>
-          <h1 className="font-headline italic text-2xl text-white tracking-tight">RasoRead</h1>
-          <p className="font-label text-xs text-zinc-600 mt-1 uppercase tracking-widest">Your books, now in motion</p>
+
+          <div className="space-y-6 mb-16">
+             <span className="text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Join the Library</span>
+             <h1 className="text-5xl font-bold text-white leading-[1.1] tracking-tight">
+               Build your<br />Digital Mind.
+             </h1>
+             <p className="text-zinc-500 font-medium text-lg leading-relaxed max-w-sm italic font-serif">
+               "Reading is an act of deep contemplation and synthesis."
+             </p>
+          </div>
+
+          <div className="space-y-4">
+            {PERKS.map((perk, i) => (
+              <motion.div 
+                key={perk}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.4 + i * 0.1 }}
+                className="flex items-center gap-4"
+              >
+                <div className="w-6 h-6 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center shrink-0">
+                  <Check size={12} className="text-primary" />
+                </div>
+                <p className="text-sm font-medium text-zinc-400">{perk}</p>
+              </motion.div>
+            ))}
+          </div>
         </div>
 
-        <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-7 space-y-5">
-          <div>
-            <h2 className="font-headline text-2xl text-white font-medium">Create account</h2>
-            <p className="font-label text-sm text-zinc-600 mt-1">Start your audio reading journey</p>
-          </div>
+        <div className="relative z-10">
+           <p className="text-[10px] font-bold text-zinc-700 uppercase tracking-widest">Est. 2024 · Silicon Valley</p>
+        </div>
+      </div>
 
-          <form onSubmit={submit} className="space-y-3">
-            {[
-              { label: "Name", key: "name", type: "text", placeholder: "Your name" },
-              { label: "Email", key: "email", type: "email", placeholder: "you@example.com" },
-              { label: "Password", key: "password", type: "password", placeholder: "Min 8 characters" },
-              { label: "Confirm password", key: "confirm", type: "password", placeholder: "Repeat password" },
-            ].map(({ label, key, type, placeholder }) => (
-              <div key={key}>
-                <label className="font-label text-[10px] uppercase tracking-widest text-zinc-600 mb-1.5 block">{label}</label>
+      {/* ── Form Panel ──────────────────────────────────────────────────── */}
+      <div className="flex-1 flex items-center justify-center p-8 relative">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          className="w-full max-w-[440px] glass-card p-10 rounded-[2.5rem]"
+        >
+          <header className="mb-10 text-center lg:text-left">
+            <h2 className="text-3xl font-bold text-white tracking-tight mb-2">Create Account</h2>
+            <p className="text-zinc-500 font-medium">Begin your journey into cognitive reading.</p>
+          </header>
+
+          <form onSubmit={submit} className="space-y-5">
+            <div className="grid grid-cols-1 gap-5">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Full Name</label>
                 <input
-                  type={type}
-                  value={form[key as keyof typeof form]}
-                  onChange={set(key as keyof typeof form)}
-                  placeholder={placeholder}
+                  type="text"
+                  value={form.name}
+                  onChange={set("name")}
+                  placeholder="Your name"
                   required
-                  className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 font-label text-sm text-zinc-200 placeholder:text-zinc-700 focus:outline-none focus:border-primary/40 focus:bg-white/[0.06] transition-all"
+                  className="w-full h-12 bg-white/[0.03] border border-white/10 rounded-2xl px-5 text-sm text-white placeholder:text-zinc-700 focus:outline-none focus:border-primary/50 transition-all"
                 />
               </div>
-            ))}
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Identity (Email)</label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={set("email")}
+                  placeholder="email@example.com"
+                  required
+                  className="w-full h-12 bg-white/[0.03] border border-white/10 rounded-2xl px-5 text-sm text-white placeholder:text-zinc-700 focus:outline-none focus:border-primary/50 transition-all"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Passcode</label>
+                <div className="relative">
+                  <input
+                    type={showPw ? "text" : "password"}
+                    value={form.password}
+                    onChange={set("password")}
+                    placeholder="Min 8 characters"
+                    required
+                    className="w-full h-12 bg-white/[0.03] border border-white/10 rounded-2xl px-5 pr-12 text-sm text-white focus:outline-none focus:border-primary/50 transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPw(!showPw)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400 transition-colors"
+                  >
+                    {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 ml-1">Confirm Passcode</label>
+                <input
+                  type="password"
+                  value={form.confirm}
+                  onChange={set("confirm")}
+                  placeholder="Repeat passcode"
+                  required
+                  className="w-full h-12 bg-white/[0.03] border border-white/10 rounded-2xl px-5 text-sm text-white focus:outline-none focus:border-primary/50 transition-all"
+                />
+              </div>
+            </div>
 
             {error && (
-              <p className="font-label text-xs text-red-400 bg-red-500/10 border border-red-500/20 px-3 py-2.5 rounded-xl">
+              <motion.p initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-4 py-3 rounded-xl">
                 {error}
-              </p>
+              </motion.p>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary text-on-primary font-label text-sm font-semibold hover:brightness-110 active:scale-[0.98] transition-all shadow-[0_4px_16px_rgba(128,131,255,0.2)] disabled:opacity-60 mt-1"
+              className="w-full h-12 flex items-center justify-center gap-2 rounded-2xl bg-primary text-white font-bold text-sm shadow-[0_8px_24px_rgba(129,140,248,0.3)] hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50 mt-2"
             >
-              {loading && <Loader2 size={15} className="animate-spin" />}
-              Create account
+              {loading && <Loader2 size={18} className="animate-spin" />}
+              Initiate Account
             </button>
           </form>
 
-          <p className="text-center font-label text-xs text-zinc-600">
-            Already have an account?{" "}
-            <button onClick={() => router.push("/login")} className="text-primary hover:text-primary/80 transition-colors">
-              Sign in
-            </button>
-          </p>
-        </div>
-
-        {/* Social proof */}
-        <p className="text-center font-label text-[10px] text-zinc-700 mt-6 uppercase tracking-widest">
-          Free · No credit card · 20+ neural voices
-        </p>
-      </motion.div>
+          <footer className="mt-8 text-center">
+            <p className="text-sm font-medium text-zinc-500">
+              Already a member?{" "}
+              <button onClick={() => router.push("/login")} className="text-white font-bold hover:text-primary transition-colors">
+                Sign In
+              </button>
+            </p>
+          </footer>
+        </motion.div>
+      </div>
     </div>
   );
 }

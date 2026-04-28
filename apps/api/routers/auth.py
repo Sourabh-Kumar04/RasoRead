@@ -81,12 +81,33 @@ async def me_usage(request: Request, current_user: User = Depends(get_current_us
     return get_daily_usage(key)
 
 
+@router.delete("/me", status_code=204)
+async def delete_account(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Permanently delete account and all associated data (GDPR compliance)."""
+    from sqlalchemy import delete as sql_delete
+    from models.db import Book, ReadingProgress, Highlight, Note, Bookmark, AnalyticsEvent
+    # Cascade deletes handle books/highlights/notes via FK, but be explicit
+    await db.execute(sql_delete(AnalyticsEvent).where(AnalyticsEvent.user_id == current_user.id))
+    await db.execute(sql_delete(ReadingProgress).where(ReadingProgress.user_id == current_user.id))
+    await db.delete(current_user)
+    await db.commit()
+
+
 @router.patch("/settings")
 async def update_settings(
     body: dict,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    current_user.settings = {**current_user.settings, **body}
+    # Only allow safe preference keys — never let users write arbitrary data
+    ALLOWED_KEYS = {"theme", "font_size", "tts_speed", "voice_id", "dyslexia_mode", "focus_mode"}
+    safe = {k: v for k, v in body.items() if k in ALLOWED_KEYS}
+    if not safe:
+        raise HTTPException(400, "No valid settings keys provided")
+    current_user.settings = {**current_user.settings, **safe}
     db.add(current_user)
+    await db.commit()
     return {"settings": current_user.settings}

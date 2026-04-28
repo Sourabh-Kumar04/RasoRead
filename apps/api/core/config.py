@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
     # Storage
-    STORAGE_BACKEND: str = "db"   # db | local | s3
+    STORAGE_BACKEND: str = "local"   # local | s3  (never use 'db' — stores raw bytes in Postgres)
     LOCAL_STORAGE_PATH: str = "./uploads"
     AWS_S3_BUCKET: str = ""
     AWS_REGION: str = "us-east-1"
@@ -55,7 +55,7 @@ class Settings(BaseSettings):
     ELEVENLABS_API_KEY: str = ""
 
     # ── CORS ──────────────────────────────────────────────────────────────────
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000"]
+    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:3001"]
 
     # ── File limits ───────────────────────────────────────────────────────────
     MAX_UPLOAD_SIZE_MB: int = 100

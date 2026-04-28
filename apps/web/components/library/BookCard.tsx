@@ -16,6 +16,7 @@ interface BookCardProps {
     status: string;
     file_type: string;
     total_pages: number;
+    total_words?: number;
   };
   progress?: {
     completion_pct: number;
@@ -27,7 +28,7 @@ interface BookCardProps {
 
 const FILE_TYPE_COLORS: Record<string, string> = {
   pdf:  "bg-red-500/10 text-red-400 border border-red-500/20",
-  epub: "bg-green-500/10 text-green-400 border border-green-500/20",
+  epub: "bg-primary/10 text-primary border border-primary/20",
   docx: "bg-blue-500/10 text-blue-400 border border-blue-500/20",
   txt:  "bg-zinc-800 text-zinc-400 border border-white/10",
 };
@@ -118,8 +119,8 @@ export function BookCard({ book, progress, onDelete }: BookCardProps) {
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -4 }}
-      transition={{ duration: 0.2 }}
+      whileHover={{ y: -3 }}
+      transition={{ duration: 0.2, hover: { duration: 0.15 } }}
       className="group cursor-pointer"
       onClick={handleOpen}
     >
@@ -138,8 +139,12 @@ export function BookCard({ book, progress, onDelete }: BookCardProps) {
         {book.cover_url ? (
           <img src={book.cover_url} alt={book.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
         ) : (
-          <div className={cn("w-full h-full bg-gradient-to-b flex items-end p-3", gradient)}>
-            <p className="font-headline italic text-sm text-white/90 leading-tight line-clamp-3">{book.title}</p>
+          <div className={cn("w-full h-full bg-gradient-to-b flex flex-col items-center justify-center p-6 text-center relative", gradient)}>
+            <div className="absolute inset-0 opacity-10 bg-noise pointer-events-none" />
+            <div className="w-8 h-px bg-white/20 mb-4" />
+            <p className="font-serif italic text-sm text-white/80 leading-tight line-clamp-4 px-2 select-none">{book.title}</p>
+            <div className="w-8 h-px bg-white/20 mt-4" />
+            {book.author && <p className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em] mt-6 select-none">{book.author}</p>}
           </div>
         )}
 
@@ -200,12 +205,22 @@ export function BookCard({ book, progress, onDelete }: BookCardProps) {
         <h3 className="font-headline text-base font-medium text-zinc-200 leading-tight line-clamp-2 group-hover:text-white transition-colors">
           {book.title}
         </h3>
-        {book.author && <p className="font-label text-xs text-zinc-600">{book.author}</p>}
+        {book.author && <p className="font-label text-xs text-zinc-600 truncate">{book.author}</p>}
         <div className="flex items-center gap-2 pt-1">
           <span className={cn("font-label text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded", FILE_TYPE_COLORS[book.file_type] || FILE_TYPE_COLORS.txt)}>
             {book.file_type}
           </span>
           {pct > 0 && pct < 95 && <span className="font-label text-[9px] text-zinc-600">{Math.round(pct)}%</span>}
+          {pct === 0 && (book.total_words ?? 0) > 0 && (
+            <span className="font-label text-[9px] text-zinc-700">
+              ~{Math.max(1, Math.round((book.total_words ?? 0) / 150))}min
+            </span>
+          )}
+          {progress?.last_read_at && pct > 0 && pct < 95 && (
+            <span className="font-label text-[9px] text-zinc-700 ml-auto">
+              {new Date(progress.last_read_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+            </span>
+          )}
         </div>
       </div>
     </motion.div>

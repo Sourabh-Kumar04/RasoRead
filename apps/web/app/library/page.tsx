@@ -1,9 +1,9 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Plus, BookOpen, BarChart2, LogOut, X, Headphones, Zap, Clock } from "lucide-react";
+import { Search, Plus, BookOpen, BarChart2, LogOut, X, Headphones, Zap, Clock, Upload } from "lucide-react";
 import { BookCard } from "@/components/library/BookCard";
 import { UploadDropzone } from "@/components/library/UploadDropzone";
 import { booksApi, readerApi } from "@/lib/api";
@@ -21,13 +21,17 @@ export default function LibraryPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterTab>("all");
   const [showUpload, setShowUpload] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const token = localStorage.getItem("rasoread_access_token");
     if (!token) { router.push("/login"); return; }
     fetchBooks();
-  }, []);
+
+    const handleScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [router]);
 
   const fetchBooks = async () => {
     setLoading(true);
@@ -60,109 +64,135 @@ export default function LibraryPage() {
   const filtered = books.filter((b) => {
     const matchSearch = !search || b.title.toLowerCase().includes(search.toLowerCase()) || (b.author || "").toLowerCase().includes(search.toLowerCase());
     const pct = progress[b.id]?.completion_pct || 0;
-    const matchFilter = filter === "all" || (filter === "reading" && pct > 0 && pct < 95) || (filter === "finished" && pct >= 95) || (filter === "unread" && pct === 0);
+    const matchFilter =
+      filter === "all" ||
+      (filter === "reading" && pct > 0 && pct < 95) ||
+      (filter === "finished" && pct >= 95) ||
+      (filter === "unread" && pct === 0);
     return matchSearch && matchFilter;
   });
 
-  const continueBook = books.find((b) => progress[b.id]?.completion_pct > 0 && progress[b.id]?.completion_pct < 95);
+  const continueBook = books.find((b) => { const pct = progress[b.id]?.completion_pct || 0; return pct > 0 && pct < 95; });
   const totalHours = Math.round(books.reduce((acc, b) => acc + (b.total_words || 0), 0) / 15000 * 10) / 10;
   const booksFinished = books.filter((b) => (progress[b.id]?.completion_pct || 0) >= 95).length;
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-on-surface">
+    <div className="min-h-screen bg-black text-white font-sans selection:bg-primary/30">
       <OnboardingModal />
-      {/* Top bar */}
-      <header className="fixed top-0 left-0 right-0 z-50 h-16 flex items-center justify-between px-8 bg-[#0A0A0A]/90 backdrop-blur-[20px] border-b border-white/[0.06]">
-        <div className="flex items-center gap-10">
-          <span className="font-headline text-xl font-semibold text-white tracking-tight italic">RasoRead</span>
-          <nav className="hidden md:flex items-center gap-6">
-            <span className="text-white font-label text-sm font-semibold">Library</span>
-            <button onClick={() => router.push("/insights")} className="text-zinc-500 hover:text-zinc-300 transition-colors font-label text-sm">Insights</button>
-          </nav>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="relative hidden sm:block">
-            <Search size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-600" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onFocus={() => router.push("/search")}
-              placeholder="Search books..."
-              className="bg-white/[0.04] border border-white/[0.08] rounded-lg pl-9 pr-4 py-2 text-sm w-52 focus:border-primary/40 focus:bg-white/[0.06] outline-none transition-all text-zinc-300 placeholder:text-zinc-600 cursor-pointer"
-              readOnly
-            />
+      <div className="fixed inset-0 bg-grid opacity-10 pointer-events-none" />
+
+      {/* ── Floating Header ────────────────────────────────────────────────── */}
+      <header className={cn(
+        "fixed top-0 left-0 right-0 z-50 transition-all duration-300 px-6 md:px-12 flex items-center justify-center pt-6",
+        scrolled ? "h-20" : "h-24"
+      )}>
+        <div className={cn(
+          "w-full max-w-7xl flex items-center justify-between px-6 h-14 rounded-2xl transition-all duration-300",
+          scrolled ? "bg-black/60 backdrop-blur-2xl border border-white/10 shadow-2xl" : "bg-transparent border-transparent"
+        )}>
+          <div className="flex items-center gap-8">
+            <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => router.push("/")}>
+              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
+                <Headphones size={16} className="text-white" />
+              </div>
+              <span className="font-bold text-lg tracking-tight text-white italic">RasoRead</span>
+            </div>
+            <nav className="hidden md:flex items-center gap-6">
+              <span className="text-white text-sm font-semibold">Library</span>
+              <button onClick={() => router.push("/insights")} className="text-zinc-500 hover:text-white transition-colors text-sm font-medium">Insights</button>
+              <button onClick={() => router.push("/profile")} className="text-zinc-500 hover:text-white transition-colors text-sm font-medium">Profile</button>
+            </nav>
           </div>
-          <button onClick={() => router.push("/insights")} className="p-2 rounded-lg hover:bg-white/5 transition-colors text-zinc-500 hover:text-zinc-300">
-            <BarChart2 size={16} />
-          </button>
-          <StreakBadge />
-          <button onClick={logout} className="p-2 rounded-lg hover:bg-white/5 transition-colors text-zinc-600 hover:text-zinc-400">
-            <LogOut size={16} />
-          </button>
+          
+          <div className="flex items-center gap-4">
+            <div className="hidden sm:flex items-center gap-2 bg-white/[0.05] border border-white/10 rounded-xl px-3 py-1.5 focus-within:border-primary/50 transition-all">
+              <Search size={14} className="text-zinc-500" />
+              <input 
+                type="text" 
+                placeholder="Search library..." 
+                className="bg-transparent border-none outline-none text-xs w-32 md:w-48 text-white placeholder:text-zinc-600 font-medium"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <StreakBadge />
+            <div className="h-4 w-px bg-white/10 mx-1 hidden sm:block" />
+            <button onClick={logout} className="p-2 rounded-xl hover:bg-white/5 text-zinc-500 hover:text-white transition-all" aria-label="Sign out">
+              <LogOut size={18} />
+            </button>
+          </div>
         </div>
       </header>
 
-      <main className="pt-20 pb-32 px-8 max-w-[1200px] mx-auto">
-
-        {/* ── Stats strip ─────────────────────────────────────────────────── */}
+      <main className="pt-32 pb-28 md:pb-16 px-6 md:px-12 max-w-7xl mx-auto relative z-10">
+        {/* Stats Row */}
         {books.length > 0 && (
-          <div className="flex items-center gap-6 py-5 border-b border-white/[0.06] mb-8">
-            <div className="flex items-center gap-2 text-zinc-500">
-              <BookOpen size={14} />
-              <span className="font-label text-xs">{books.length} books</span>
+          <div className="flex flex-wrap items-center gap-6 py-6 mb-8 border-b border-white/5">
+            <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-white/[0.03] border border-white/5">
+              <BookOpen size={14} className="text-primary" />
+              <span className="text-xs font-semibold text-zinc-400">{books.length} {books.length === 1 ? "Book" : "Books"}</span>
             </div>
-            <div className="flex items-center gap-2 text-zinc-500">
-              <Headphones size={14} />
-              <span className="font-label text-xs">{totalHours}h of audio</span>
+            <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-white/[0.03] border border-white/5">
+              <Headphones size={14} className="text-primary" />
+              <span className="text-xs font-semibold text-zinc-400">{totalHours}h Audio</span>
             </div>
-            <div className="flex items-center gap-2 text-zinc-500">
-              <Zap size={14} />
-              <span className="font-label text-xs">{booksFinished} finished</span>
+            <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-white/[0.03] border border-white/5">
+              <Zap size={14} className="text-primary" />
+              <span className="text-xs font-semibold text-zinc-400">{booksFinished} Finished</span>
             </div>
-            {continueBook && (
-              <div className="ml-auto flex items-center gap-2 text-primary">
-                <Clock size={14} />
-                <span className="font-label text-xs">
-                  {Math.round(progress[continueBook.id]?.completion_pct || 0)}% through <em>{continueBook.title}</em>
-                </span>
-              </div>
-            )}
           </div>
         )}
 
-        {/* ── Continue reading ─────────────────────────────────────────────── */}
+        {/* Continue Reading - Premium Card */}
         {continueBook && (
-          <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
+          <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-14">
             <div
-              className="relative rounded-2xl overflow-hidden cursor-pointer group border border-white/[0.06] hover:border-primary/30 transition-all duration-300"
-              style={{ background: "linear-gradient(135deg, rgba(128,131,255,0.06) 0%, rgba(10,10,10,0) 60%)" }}
+              className="group relative rounded-[2rem] overflow-hidden cursor-pointer border border-white/10 hover:border-primary/40 transition-all duration-500 shadow-2xl"
               onClick={() => router.push(`/reader/${continueBook.id}`)}
             >
-              <div className="flex flex-col md:flex-row gap-6 p-6 items-center">
-                <div className="w-28 aspect-[3/4] rounded-xl overflow-hidden shadow-2xl shrink-0 border border-white/10">
-                  {continueBook.cover_url
-                    ? <img src={continueBook.cover_url} alt={continueBook.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                    : <div className="w-full h-full bg-gradient-to-b from-primary/20 to-surface-container-high flex items-end p-3"><p className="font-headline italic text-sm text-white/80 leading-tight line-clamp-3">{continueBook.title}</p></div>
-                  }
+              {/* Background Glow */}
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-50" />
+              <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-[80px] -z-10 group-hover:bg-primary/10 transition-all" />
+              
+              <div className="relative flex flex-col md:flex-row gap-8 p-8 items-center bg-black/40 backdrop-blur-xl">
+                <div className="w-32 md:w-40 aspect-[3/4] rounded-2xl overflow-hidden shadow-[0_20px_40px_rgba(0,0,0,0.6)] shrink-0 border border-white/10 relative group-hover:scale-[1.02] transition-transform duration-500">
+                  {continueBook.cover_url ? (
+                    <img src={continueBook.cover_url} alt={continueBook.title} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-b from-primary/20 to-zinc-900 flex items-end p-4">
+                      <p className="font-serif italic text-sm text-white/80 leading-tight line-clamp-3">{continueBook.title}</p>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-all" />
                 </div>
-                <div className="flex-1 space-y-4">
+
+                <div className="flex-1 w-full space-y-6">
                   <div>
-                    <p className="font-label text-[10px] uppercase tracking-[0.15em] text-primary mb-1">Continue listening</p>
-                    <h2 className="font-headline text-2xl text-white font-medium">{continueBook.title}</h2>
-                    {continueBook.author && <p className="font-label text-sm text-zinc-500 mt-0.5">{continueBook.author}</p>}
+                    <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-primary/20 border border-primary/30 mb-4">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Continue listening</span>
+                    </div>
+                    <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight leading-tight group-hover:text-primary transition-colors">{continueBook.title}</h2>
+                    {continueBook.author && <p className="text-lg text-zinc-500 mt-1 font-medium italic font-serif">— {continueBook.author}</p>}
                   </div>
-                  <div>
-                    <div className="flex justify-between font-label text-xs text-zinc-600 mb-1.5">
+
+                  <div className="space-y-3">
+                    <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-zinc-500">
+                      <span>Progress: {Math.round(progress[continueBook.id]?.completion_pct || 0)}%</span>
                       <span>Page {progress[continueBook.id]?.current_page} of {continueBook.total_pages}</span>
-                      <span className="text-primary">{Math.round(progress[continueBook.id]?.completion_pct || 0)}%</span>
                     </div>
-                    <div className="h-0.5 w-full bg-white/[0.06] rounded-full overflow-hidden">
-                      <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${progress[continueBook.id]?.completion_pct || 0}%` }} />
+                    <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${progress[continueBook.id]?.completion_pct || 0}%` }}
+                        transition={{ duration: 1, ease: "easeOut" }}
+                        className="h-full bg-primary rounded-full shadow-[0_0_12px_rgba(129,140,248,0.6)]" 
+                      />
                     </div>
                   </div>
-                  <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-on-primary font-label text-sm font-semibold hover:brightness-110 active:scale-95 transition-all shadow-[0_4px_16px_rgba(128,131,255,0.25)]">
-                    <Headphones size={14} />
-                    Resume
+
+                  <button className="btn-primary flex items-center gap-3 px-8 h-12 text-sm font-bold">
+                    <Headphones size={18} fill="currentColor" />
+                    Resume Session
                   </button>
                 </div>
               </div>
@@ -170,80 +200,90 @@ export default function LibraryPage() {
           </motion.section>
         )}
 
-        {/* ── Header + filters ─────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-3">
-            <h2 className="font-headline text-2xl font-medium text-white">Library</h2>
-            {filtered.length > 0 && (
-              <span className="font-label text-xs text-zinc-600 bg-white/[0.04] border border-white/[0.06] px-2 py-0.5 rounded-full">
-                {filtered.length}
-              </span>
-            )}
+        {/* Library Header & Filters */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+          <div className="flex items-center gap-4">
+            <h2 className="text-2xl font-bold text-white tracking-tight">{search ? `Results for "${search}"` : "Your Library"}</h2>
+            {filtered.length > 0 && <span className="text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full uppercase tracking-widest">{filtered.length} Books</span>}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 p-1 bg-white/[0.03] border border-white/5 rounded-2xl">
             {(["all", "reading", "finished", "unread"] as FilterTab[]).map((t) => (
-              <button
-                key={t}
-                onClick={() => setFilter(t)}
+              <button 
+                key={t} 
+                onClick={() => setFilter(t)} 
                 className={cn(
-                  "px-3 py-1 rounded-lg font-label text-xs transition-all",
-                  filter === t
-                    ? "bg-white/[0.08] text-white"
-                    : "text-zinc-600 hover:text-zinc-400"
+                  "px-4 py-1.5 rounded-xl text-xs font-bold transition-all uppercase tracking-widest", 
+                  filter === t ? "bg-white text-black shadow-lg" : "text-zinc-500 hover:text-zinc-300"
                 )}
               >
-                {t === "all" ? "All" : t.charAt(0).toUpperCase() + t.slice(1)}
+                {t}
               </button>
             ))}
           </div>
         </div>
 
-        {/* ── Upload dropzone ───────────────────────────────────────────────── */}
-        <AnimatePresence>
+        {/* Content Grid */}
+        <AnimatePresence mode="wait">
           {showUpload && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mb-6 overflow-hidden">
-              <UploadDropzone onUploadSuccess={handleUploadSuccess} />
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mb-10 overflow-hidden">
+              <div className="p-1 rounded-[2rem] bg-gradient-to-r from-primary/30 via-white/5 to-indigo-500/30">
+                <div className="bg-zinc-950 rounded-[1.9rem] overflow-hidden">
+                  <UploadDropzone onUploadSuccess={handleUploadSuccess} />
+                </div>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* ── Books grid ───────────────────────────────────────────────────── */}
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8">
             {Array.from({ length: 10 }).map((_, i) => (
-              <div key={i} className="animate-pulse">
-                <div className="aspect-[3/4] rounded-xl bg-white/[0.04] mb-3" />
-                <div className="h-3.5 bg-white/[0.04] rounded mb-1.5" />
-                <div className="h-3 bg-white/[0.04] rounded w-2/3" />
+              <div key={i} className="space-y-4">
+                <div className="aspect-[3/4] rounded-2xl bg-white/[0.03] animate-pulse border border-white/5" />
+                <div className="h-4 bg-white/[0.03] rounded-full w-3/4 animate-pulse" />
+                <div className="h-3 bg-white/[0.03] rounded-full w-1/2 animate-pulse" />
               </div>
             ))}
           </div>
-        ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-32 space-y-4">
-            <div className="w-16 h-16 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center">
-              <BookOpen size={28} className="text-zinc-700" />
+        ) : books.length === 0 ? (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-32 space-y-8 text-center">
+            <div className="w-24 h-24 rounded-[2.5rem] bg-white/[0.03] border border-white/5 flex items-center justify-center text-zinc-700">
+              <BookOpen size={40} />
             </div>
-            <p className="font-headline text-xl text-zinc-600">{search ? "No results found" : "Your library is empty"}</p>
-            <p className="font-label text-sm text-zinc-700">{search ? `No books match "${search}"` : "Upload a PDF, EPUB, DOCX, or TXT to get started"}</p>
-            {!search && (
-              <button onClick={() => setShowUpload(true)} className="btn-ghost text-sm mt-2">
-                Upload your first book
-              </button>
-            )}
+            <div className="space-y-2">
+              <h3 className="text-2xl font-bold text-white tracking-tight">Your library is silent</h3>
+              <p className="text-zinc-500 max-w-xs mx-auto text-sm leading-relaxed font-medium">Upload a document to begin your journey into the architecture of silence.</p>
+            </div>
+            <button onClick={() => setShowUpload(true)} className="btn-primary h-14 px-8">
+              <Upload size={18} className="mr-2 inline" />
+              Upload First Book
+            </button>
+          </motion.div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-32 space-y-4 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center text-zinc-800">
+              <Search size={28} />
+            </div>
+            <p className="text-xl font-bold text-zinc-500">No matches found</p>
+            <button onClick={() => { setSearch(""); setFilter("all"); }} className="text-sm font-bold text-primary hover:brightness-125 transition-all">Clear All Filters</button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-5 gap-y-9">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-8 gap-y-12">
             {filtered.map((book) => <BookCard key={book.id} book={book} progress={progress[book.id]} onDelete={handleDelete} />)}
           </div>
         )}
       </main>
 
-      {/* ── FAB ──────────────────────────────────────────────────────────────── */}
+      {/* Floating Action Button */}
       <button
         onClick={() => setShowUpload((v) => !v)}
-        className="fixed bottom-24 right-6 w-12 h-12 rounded-2xl bg-primary flex items-center justify-center text-on-primary hover:brightness-110 active:scale-95 transition-all z-40 shadow-[0_8px_24px_rgba(128,131,255,0.3)]"
+        className={cn(
+          "fixed bottom-8 right-8 w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-500 z-50 shadow-2xl",
+          showUpload ? "bg-white text-black rotate-45" : "bg-primary text-white shadow-primary/40"
+        )}
+        aria-label={showUpload ? "Close upload" : "Upload book"}
       >
-        {showUpload ? <X size={18} /> : <Plus size={18} />}
+        <Plus size={28} />
       </button>
     </div>
   );

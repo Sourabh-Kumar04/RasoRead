@@ -139,8 +139,11 @@ async def search_library(
     Full-text semantic search across all of the user's books.
     Uses the FAISS index for each ready book and returns ranked results.
     """
-    if not q.strip():
-        return {"results": []}
+    q = q.strip()
+    if not q:
+        return {"results": [], "query": q}
+    if len(q) > 500:
+        q = q[:500]  # Clamp to prevent abuse
 
     from services.rag_service import _load_index
     from pathlib import Path
@@ -176,7 +179,11 @@ async def search_library(
 
     # Sort by relevance (ascending score = more relevant)
     hits.sort(key=lambda x: x["score"])
-    return {"results": hits[:10], "query": q}
+    return {
+        "results": hits[:10],
+        "query": q,
+        "ai_available": is_ai_available(),
+    }
 
 
 # ── Helper ────────────────────────────────────────────────────────────────────

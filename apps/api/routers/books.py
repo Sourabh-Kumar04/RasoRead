@@ -7,7 +7,7 @@ from core.database import get_db
 from core.security import get_current_user
 from core.config import settings
 from models.db import User, Book
-from schemas.pydantic_schemas import BookOut, BookDetailOut
+from schemas.pydantic_schemas import BookOut, BookDetailOut, BookMetaUpdate
 from services.storage_service import StorageService
 from services.document_processor import process_book_task
 from services.cover_service import extract_cover, cover_to_data_url
@@ -98,6 +98,7 @@ async def upload_book(
     )
     db.add(book)
     await db.flush()
+    await db.commit()
 
     logger.info("Book uploaded: %s (%s) by user %s", book.id, file_type, current_user.id)
 
@@ -126,20 +127,21 @@ async def book_status(
     return {"status": book.status, "error": book.error_message}
 
 
-@router.patch("/{book_id}")
+@router.patch("/{book_id}", response_model=dict)
 async def update_book_meta(
     book_id: str,
-    body: dict,
+    body: BookMetaUpdate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Update editable fields: title, author."""
     book = await _get_user_book(book_id, current_user.id, db)
-    if "title" in body:
-        book.title = body["title"][:500]
-    if "author" in body:
-        book.author = body["author"][:255]
+    if body.title is not None:
+        book.title = body.title
+    if body.author is not None:
+        book.author = body.author
     db.add(book)
+    await db.commit()
     return {"id": book.id, "title": book.title, "author": book.author}
 
 
@@ -155,6 +157,7 @@ async def delete_book(
     except Exception as exc:
         logger.warning("Storage delete failed for %s: %s", book.s3_key, exc)
     await db.execute(delete(Book).where(Book.id == book_id))
+    await db.commit()
 
 
 async def _get_user_book(book_id: str, user_id: str, db: AsyncSession) -> Book:

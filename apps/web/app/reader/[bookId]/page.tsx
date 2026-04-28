@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +36,7 @@ export default function ReaderPage() {
 
   // ── Stable ref so useTTSSync's onPageEnd always calls the latest goToPage ──
   const goToPageRef = useRef<(page: number) => void>(() => {});
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // ── Single TTS instance for the entire reader page ──────────────────────────
   const tts = useTTSSync({ onPageEnd: () => goToPageRef.current(store.currentPage + 1) });
@@ -126,14 +127,14 @@ export default function ReaderPage() {
   // ── Page navigation ─────────────────────────────────────────────────────────
   const goToPage = useCallback(
     async (page: number) => {
-      const target = Math.max(1, Math.min(page, store.totalPages));
-      if (target === store.currentPage) return;
-
-      // If we've reached the last page and TTS triggered this, stop
-      if (target > store.totalPages) {
+      // End of book — page requested beyond last page
+      if (page > store.totalPages) {
         tts.stop();
         return;
       }
+
+      const target = Math.max(1, Math.min(page, store.totalPages));
+      if (target === store.currentPage) return;
 
       const wasPlaying = store.isPlaying;
       store.setPage(target);
@@ -166,6 +167,35 @@ export default function ReaderPage() {
     () => goToPage(store.currentPage - 1),
     [goToPage, store.currentPage]
   );
+
+  // ── Keyboard Shortcuts ──────────────────────────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      if (e.code === "Space") {
+        e.preventDefault();
+        if (store.isPlaying) tts.pause();
+        else if (store.isPaused) tts.resume();
+        else {
+          const paras = store.pageData?.paragraphs ?? [];
+          const idx = paras.findIndex((p) => p.text.trim().length > 0);
+          if (idx !== -1) tts.play(paras[idx].text, idx);
+        }
+      } else if (e.code === "ArrowLeft") {
+        goToPage(store.currentPage - 1);
+      } else if (e.code === "ArrowRight") {
+        goToPage(store.currentPage + 1);
+      } else if (e.key.toLowerCase() === "f") {
+        store.toggleFocusMode();
+      } else if (e.key.toLowerCase() === "s") {
+        store.toggleSmartPanel();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [store, tts, goToPage]);
 
   // ── Voice commands ──────────────────────────────────────────────────────────
   useVoiceCommands(
@@ -227,61 +257,66 @@ export default function ReaderPage() {
   return (
     <div
       className={cn(
-        "min-h-screen bg-surface transition-all duration-500",
+        "h-screen flex flex-col bg-[#0A0A0A] transition-all duration-500",
         store.focusMode && "focus-mode",
         store.theme === "sepia" && "sepia-mode",
         store.theme === "light" && "bg-white"
       )}
     >
-      <ReaderTopBar bookId={bookId} />
+      <ReaderTopBar bookId={bookId} onOpenTOC={() => setShowTOC(true)} />
 
-      {/* TOC open button — hidden in focus mode */}
-      {!store.focusMode && (
-        <button
-          onClick={() => setShowTOC(true)}
-          className="fixed left-4 top-1/2 -translate-y-1/2 z-30 p-2 rounded-xl
-                     bg-surface-mid border border-outline-variant/20
-                     hover:border-primary/30 transition-colors"
-          title="Table of contents"
-        >
-          <BookOpen size={16} className="text-outline" />
-        </button>
-      )}
+      {/* ── Layout: scrollable content + fixed-width smart panel ─────────── */}
+      <div className="flex flex-1 overflow-hidden">
 
-      {/* Reader content */}
-      <main
-        className={cn(
-          "pt-20 pb-56 transition-all duration-300",
-          store.showSmartPanel ? "md:mr-80" : ""
-        )}
-      >
-        <ErrorBoundary>
-          <DocumentViewer bookId={bookId} tts={tts} onBookEnd={() => tts.stop()} />
-        </ErrorBoundary>
-      </main>
+        {/* ── Scrollable reader area ──────────────────────────────────────── */}
+        <div className="flex-1 overflow-y-auto relative" id="reader-scroll">
+          <div
+            className={cn(
+              "min-h-full pb-40 transition-all duration-300",
+            )}
+          >
+            <ErrorBoundary>
+              <DocumentViewer bookId={bookId} tts={tts} onBookEnd={() => tts.stop()} />
+            </ErrorBoundary>
+          </div>
+
+          {/* ── Draggable Floating Island ─────────────────── */}
+          <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden" ref={containerRef}>
+            <motion.div
+              drag
+              dragConstraints={containerRef}
+              dragElastic={0.05}
+              dragMomentum={false}
+              initial={{ x: "-50%", y: 0 }}
+              style={{ left: "50%", bottom: "2rem" }}
+              className="absolute pointer-events-auto flex flex-col items-center gap-3 w-[90vw] max-w-2xl cursor-grab active:cursor-grabbing shell-hide"
+            >
+              <KaraokeBar />
+              <FloatingControls
+                tts={tts}
+                onNextPage={nextPage}
+                onPrevPage={prevPage}
+                voices={voices}
+              />
+            </motion.div>
+          </div>
+        </div>
+
+        {/* ── Smart panel (fixed width, not overlapping) ──────────────────── */}
+        <AnimatePresence>
+          {store.showSmartPanel && (
+            <div className="w-80 shrink-0 border-l border-outline-variant/20 overflow-y-auto">
+              <SmartPanel bookId={bookId} />
+            </div>
+          )}
+        </AnimatePresence>
+      </div>
 
       {/* Table of contents drawer */}
       <TOCDrawer
         open={showTOC}
         onClose={() => setShowTOC(false)}
         onJumpTo={goToPage}
-      />
-
-      {/* Smart panel */}
-      <AnimatePresence>
-        {store.showSmartPanel && <SmartPanel bookId={bookId} />}
-      </AnimatePresence>
-
-      {/* Karaoke bar — appears above floating controls during playback */}
-      <KaraokeBar />
-
-      {/* Floating playback controls */}
-      <FloatingControls
-        bookId={bookId}
-        tts={tts}
-        onNextPage={nextPage}
-        onPrevPage={prevPage}
-        voices={voices}
       />
     </div>
   );

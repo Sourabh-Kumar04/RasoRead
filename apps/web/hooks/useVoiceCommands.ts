@@ -43,6 +43,19 @@ export function useVoiceCommands(handlers: VoiceCommandHandlers, enabled = true)
         handlers.onPlayPause?.();
       } else if (cmd.includes("focus mode")) {
         store.toggleFocusMode();
+      } else if (cmd.includes("summarise") || cmd.includes("summarize") || cmd.includes("summary")) {
+        // Open AI tab — SmartPanel will auto-summarise
+        store.toggleSmartPanel("ai");
+      } else if (cmd.startsWith("ask") || cmd.startsWith("question")) {
+        // "ask what is the main theme" → extract question after "ask"
+        const question = cmd.replace(/^(ask|question)\s*/i, "").trim();
+        if (question) {
+          store.setAiQuestion(question);
+          store.toggleSmartPanel("ai");
+        }
+      } else if (cmd.includes("highlight")) {
+        // "highlight that" → open notes panel so user can manually highlight
+        store.toggleSmartPanel("notes");
       }
     },
     [handlers, store]

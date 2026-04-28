@@ -1,114 +1,165 @@
-@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  :root { color-scheme: dark; }
+  @media (pointer: fine) {
+    body.has-custom-cursor {
+      cursor: none;
+    }
+    body.has-custom-cursor * {
+      cursor: none !important;
+    }
+  }
+
+  :root { 
+    color-scheme: dark; 
+    --bg-color: #000000;
+  }
 
   html { scroll-behavior: smooth; }
 
   body {
-    background-color: #0A0A0A;
-    color: #e5e2e1;
-    font-family: "Manrope", system-ui, sans-serif;
+    background-color: var(--bg-color);
+    color: #fafafa;
+    font-family: "Inter", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     min-height: 100dvh;
+    overflow-x: hidden;
   }
 
   * { box-sizing: border-box; }
 
   ::selection {
-    background: rgba(192, 193, 255, 0.3);
+    background: rgba(129, 140, 248, 0.4);
     color: #fff;
   }
 
-  ::-webkit-scrollbar        { width: 4px; height: 4px; }
+  /* ── Modern Grid Background ─────────────────────────────────────────── */
+  .bg-grid {
+    background-size: 40px 40px;
+    background-image: 
+      linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    mask-image: radial-gradient(ellipse at center, black, transparent 80%);
+  }
+
+  .bg-sanctuary {
+    background-color: #000000;
+    background-image: 
+      radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.1) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.1) 0px, transparent 50%);
+    background-attachment: fixed;
+  }
+
+  .bg-noise::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0.03;
+    z-index: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  }
+
+  ::-webkit-scrollbar        { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track  { background: transparent; }
-  ::-webkit-scrollbar-thumb  { background: #2a2a2a; border-radius: 10px; }
-  ::-webkit-scrollbar-thumb:hover { background: #464554; }
+  ::-webkit-scrollbar-thumb  { background: #27272a; border-radius: 10px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
 }
 
 @layer components {
-  /* ── Glass card ─────────────────────────────────────────────────────────── */
+  /* ── Modern Glass Panel ───────────────────────────────────────────────── */
   .glass-card {
-    background: rgba(255, 255, 255, 0.03);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(144, 143, 160, 0.15);
-    border-top-color: rgba(192, 193, 255, 0.2);
+    background: rgba(15, 15, 15, 0.6);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 32px rgba(0, 0, 0, 0.4);
   }
 
   .glass-card:hover {
-    border-color: rgba(99, 102, 241, 0.3);
+    border-color: rgba(129, 140, 248, 0.3);
   }
 
   .glass {
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
   }
 
   /* ── Indigo glow ────────────────────────────────────────────────────────── */
   .indigo-glow {
-    box-shadow: 0 20px 40px -15px rgba(99, 102, 241, 0.2);
+    box-shadow: 0 0 40px -10px rgba(99, 102, 241, 0.4);
   }
 
-  /* ── Buttons ────────────────────────────────────────────────────────────── */
+  /* ── Modern Buttons ────────────────────────────────────────────────────── */
   .btn-primary {
-    @apply bg-primary text-on-primary font-label font-semibold px-6 py-3 rounded-xl
-           hover:brightness-110 active:scale-95 transition-all duration-150
-           shadow-lg;
-    box-shadow: 0 10px 20px rgba(99, 102, 241, 0.25);
+    @apply bg-primary text-white font-medium px-6 py-3 rounded-xl
+           hover:brightness-110 active:scale-[0.98] transition-all duration-200
+           shadow-[0_0_20px_rgba(129,140,248,0.3)] border border-white/10;
+  }
+
+  .btn-secondary {
+    @apply bg-white/10 text-white font-medium px-6 py-3 rounded-xl
+           hover:bg-white/15 active:scale-[0.98] transition-all duration-200
+           border border-white/5;
   }
 
   .btn-ghost {
-    @apply border border-outline text-on-surface font-label font-medium
-           px-6 py-3 rounded-xl hover:bg-white/5 active:scale-95
-           transition-all duration-150;
+    @apply text-zinc-400 font-medium px-6 py-3 rounded-xl
+           hover:bg-white/5 hover:text-white active:scale-[0.98]
+           transition-all duration-200;
   }
+
 
   /* ── TTS word tokens ────────────────────────────────────────────────────── */
   .word-token {
-    border-radius: 3px;
-    transition: all 0.1s;
+    border-radius: 4px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     cursor: pointer;
-    padding: 1px 2px;
+    padding: 2px 4px;
+    margin: 0 -2px;
   }
 
   .word-token:hover {
-    background: rgba(192, 193, 255, 0.1);
+    background: rgba(129, 140, 248, 0.1);
+    color: #fff;
   }
 
   .word-token.tts-active-word {
-    background: rgba(128, 131, 255, 0.4);
-    color: #e1e0ff;
-    border-radius: 3px;
+    background: rgba(129, 140, 248, 0.25);
+    color: #fff;
+    box-shadow: 0 0 15px rgba(129, 140, 248, 0.2);
     font-weight: 600;
-    padding: 1px 3px;
   }
 
   .word-token.spoken {
-    color: #464554;
+    color: #52525b;
   }
 
   /* ── Reader typography ──────────────────────────────────────────────────── */
   .reader-text {
     font-family: "Newsreader", Georgia, serif;
     font-size: 20px;
-    line-height: 1.8;
-    color: #c7c4d7;
-    letter-spacing: 0.01em;
+    line-height: 1.85;
+    color: #e4e4e7;
+    letter-spacing: -0.01em;
+    font-weight: 350;
   }
 
   .reader-heading {
     font-family: "Newsreader", Georgia, serif;
-    font-size: 28px;
+    font-size: 32px;
     font-weight: 600;
-    color: #e5e2e1;
-    margin-bottom: 1.5rem;
-    margin-top: 2.5rem;
-    line-height: 1.3;
+    color: #fff;
+    margin-bottom: 2rem;
+    margin-top: 3.5rem;
+    line-height: 1.2;
+    font-style: italic;
   }
 
   /* ── Highlight colors ───────────────────────────────────────────────────── */
@@ -134,8 +185,12 @@
 
   /* ── Focus mode ─────────────────────────────────────────────────────────── */
   .focus-mode .shell-hide {
-    opacity: 0;
-    pointer-events: none;
+    opacity: 0.02;
+    transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .focus-mode .shell-hide:hover {
+    opacity: 1;
   }
 
   /* ── Dyslexia mode ──────────────────────────────────────────────────────── */
@@ -165,4 +220,43 @@
   /* ── No scrollbar ───────────────────────────────────────────────────────── */
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* ── New Design System Additions ────────────────────────────────────────── */
+  .glass-panel {
+    backdrop-filter: blur(20px);
+    background: rgba(19, 19, 19, 0.8);
+    border: 1px solid rgba(144, 143, 160, 0.15);
+  }
+
+  .audio-wave {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    height: 16px;
+  }
+  .audio-wave span {
+    width: 2px;
+    background: #c0c1ff;
+    border-radius: 1px;
+  }
+
+  .reading-scrollbar::-webkit-scrollbar { width: 4px; }
+  .reading-scrollbar::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.02); }
+  .reading-scrollbar::-webkit-scrollbar-thumb { background: rgba(192, 193, 255, 0.2); border-radius: 2px; }
+
+  .glass-border { border: 1px solid rgba(144, 143, 160, 0.15); }
+  .top-glow { border-top: 1px solid rgba(192, 193, 255, 0.2); }
+  .reading-gradient { background: linear-gradient(to bottom, rgba(19, 19, 19, 0) 0%, rgba(19, 19, 19, 1) 100%); }
+  
+  .knowledge-line {
+      stroke-dasharray: 4;
+      animation: dash 20s linear infinite;
+  }
+  @keyframes dash {
+      to { stroke-dashoffset: -100; }
+  }
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
 }

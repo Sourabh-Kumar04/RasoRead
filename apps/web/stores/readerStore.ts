@@ -49,6 +49,8 @@ export interface ReaderState {
   dyslexiaMode: boolean;
   showSmartPanel: boolean;
   smartPanelTab: "notes" | "images" | "ai" | "analytics";
+  aiQuestion: string;
+  viewMode: "original" | "text";
 
   // Highlights
   highlights: { id: string; page: number; start_char: number; end_char: number; text: string; color: string }[];
@@ -72,6 +74,8 @@ export interface ReaderState {
   setHighlights: (highlights: ReaderState["highlights"]) => void;
   addHighlight: (h: ReaderState["highlights"][0]) => void;
   removeHighlight: (id: string) => void;
+  setAiQuestion: (q: string) => void;
+  toggleViewMode: () => void;
   reset: () => void;
 }
 
@@ -100,6 +104,8 @@ export const useReaderStore = create<ReaderState>()(
         dyslexiaMode: false,
         showSmartPanel: false,
         smartPanelTab: "notes",
+        aiQuestion: "",
+        viewMode: "original",
         highlights: [],
 
         setBook: (id, title, totalPages, toc) =>
@@ -109,9 +115,9 @@ export const useReaderStore = create<ReaderState>()(
 
         setPageData: (data) => set({ pageData: data }),
 
-        setPlaying: (playing) => set({ isPlaying: playing, isPaused: !playing }),
+        setPlaying: (playing) => set({ isPlaying: playing, isPaused: false }),
 
-        setPaused: (paused) => set({ isPaused: paused, isPlaying: !paused }),
+        setPaused: (paused) => set({ isPaused: paused, isPlaying: false }),
 
         setSpeed: (speed) => set({ ttsSpeed: speed }),
 
@@ -146,6 +152,9 @@ export const useReaderStore = create<ReaderState>()(
 
         removeHighlight: (id) =>
           set((s) => ({ highlights: s.highlights.filter((h) => h.id !== id) })),
+
+        setAiQuestion: (q) => set({ aiQuestion: q }),
+        toggleViewMode: () => set((s) => ({ viewMode: s.viewMode === "original" ? "text" : "original" })),
 
         reset: () =>
           set({

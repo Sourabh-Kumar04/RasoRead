@@ -4,6 +4,7 @@ Uses the active AI provider from ai_provider.py (Gemini / Groq / OpenAI).
 Gracefully degrades when no API key is configured.
 """
 from pathlib import Path
+import os
 from core.logging import get_logger
 from services.ai_provider import (
     ACTIVE_PROVIDER, is_ai_available,
@@ -12,8 +13,8 @@ from services.ai_provider import (
 
 logger = get_logger(__name__)
 
-INDEX_DIR = Path("./faiss_indexes")
-INDEX_DIR.mkdir(exist_ok=True)
+INDEX_DIR = Path(os.environ.get("FAISS_INDEX_DIR", "./faiss_indexes"))
+INDEX_DIR.mkdir(parents=True, exist_ok=True)
 
 
 # ── Indexing ──────────────────────────────────────────────────────────────────

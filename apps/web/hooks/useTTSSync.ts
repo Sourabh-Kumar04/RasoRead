@@ -243,9 +243,9 @@ export function useTTSSync(options?: UseTTSSyncOptions) {
                     startSyncLoop(timestamps, paraIndex);
                   } catch (e) {
                     console.error("Audio playback blocked:", e);
+                    URL.revokeObjectURL(url); // prevent memory leak
                     if (sessionRef.current === mySession) {
                       store.setPlaying(false);
-                      // Do not continue automatically if blocked
                       store.setActiveWord(-1, paraIndex);
                     }
                   }
@@ -274,7 +274,35 @@ export function useTTSSync(options?: UseTTSSyncOptions) {
     [store, speakWithWebSpeech, startSyncLoop, continueAfter]
   );
 
+  // Keep selfPlayRef in sync so continueAfter and voice-change can call play
   useEffect(() => { selfPlayRef.current = play; }, [play]);
+
+  // ── Restart TTS when voice changes mid-playback ──────────────────────────
+  const voiceChangeRef = useRef(store.voiceId);
+  useEffect(() => {
+    if (voiceChangeRef.current === store.voiceId) return;
+    voiceChangeRef.current = store.voiceId;
+
+    // Only restart if currently playing — otherwise the new voice takes effect on next play
+    if (!useReaderStore.getState().isPlaying) return;
+
+    // Stop current audio immediately so the old voice doesn't keep playing
+    sessionRef.current++;
+    audioRef.current?.pause();
+    if (audioRef.current) audioRef.current.src = "";
+    window.speechSynthesis?.cancel();
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+
+    const paras = useReaderStore.getState().pageData?.paragraphs ?? [];
+    const currentParaIdx = useReaderStore.getState().activeParagraphIndex;
+    const para = paras[currentParaIdx];
+    if (para?.text) {
+      setTimeout(() => {
+        selfPlayRef.current?.(para.text, currentParaIdx);
+      }, 150);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store.voiceId]);
 
   // ── Media Session API — lock screen controls ──────────────────────────────
   useEffect(() => {

@@ -111,7 +111,7 @@ export function UploadDropzone({ onUploadSuccess }: UploadDropzoneProps) {
             </div>
             <div>
               <p className="font-label font-semibold text-on-surface">
-                {isDragActive ? "Drop your book here" : "Upload a book"}
+                {isDragActive ? "Drop it here" : "Drop a book to upload"}
               </p>
               <p className="font-label text-sm text-zinc-500 mt-1">PDF · EPUB · DOCX · TXT &nbsp;·&nbsp; Max 100 MB</p>
             </div>

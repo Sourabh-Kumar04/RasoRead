@@ -69,38 +69,45 @@ export function KaraokeBar() {
       {show && (
         <motion.div
           key="karaoke-bar"
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 14 }}
-          transition={{ duration: 0.25 }}
-          className="fixed bottom-[7.5rem] left-1/2 -translate-x-1/2 z-40 w-full max-w-3xl px-5 pointer-events-none"
+          initial={{ opacity: 0, y: 12, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 8, scale: 0.98 }}
+          transition={{ type: "spring", damping: 25, stiffness: 300 }}
+          className="w-full max-w-4xl mx-auto"
         >
-          <div
-            className={cn(
-              "glass rounded-2xl px-7 py-4 text-center",
-              "border border-emerald-500/20",
-              "bg-[#0c1a14]/90",
-              "shadow-[0_8px_40px_rgba(0,0,0,0.55),0_0_0_1px_rgba(52,211,153,0.08)]"
-            )}
-          >
-            {/* Sentence progress dots */}
-            <p className="font-body text-[1.05rem] leading-relaxed tracking-[0.01em]">
-              {tokens.map((token, i) => (
-                <span
-                  key={i}
-                  className={cn(
-                    "transition-colors duration-75",
-                    i === localActiveIdx
-                      ? "text-emerald-300 font-semibold"
-                      : i < localActiveIdx
-                      ? "text-[#2d4a3e]"
-                      : "text-[#5a7a6e]"
-                  )}
-                >
-                  {token.word}{" "}
-                </span>
-              ))}
-            </p>
+          <div className="relative group">
+            {/* Subtle glow behind the bar */}
+            <div className="absolute inset-0 bg-primary/5 blur-2xl rounded-3xl -z-10 group-hover:bg-primary/10 transition-all duration-500" />
+            
+            <div className={cn(
+              "rounded-[1.5rem] px-8 py-5 text-center transition-all duration-500",
+              "border border-white/10 shadow-2xl",
+              "bg-black/60 backdrop-blur-3xl"
+            )}>
+              <div className="flex flex-wrap justify-center gap-x-2 gap-y-1">
+                {tokens.map((token, i) => {
+                  const isCurrent = i === localActiveIdx;
+                  const isPast = i < localActiveIdx;
+                  
+                  return (
+                    <motion.span
+                      key={i}
+                      initial={false}
+                      animate={{
+                        scale: isCurrent ? 1.05 : 1,
+                        color: isCurrent ? "#818cf8" : isPast ? "#52525b" : "#a1a1aa"
+                      }}
+                      className={cn(
+                        "text-[1.1rem] leading-relaxed transition-all duration-200",
+                        isCurrent ? "font-bold" : "font-medium"
+                      )}
+                    >
+                      {token.word}
+                    </motion.span>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </motion.div>
       )}

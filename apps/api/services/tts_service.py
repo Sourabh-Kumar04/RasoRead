@@ -285,56 +285,22 @@ async def _stream_tts_gemini_genai(
     text: str, voice_id: str, speed: float
 ) -> AsyncGenerator[str, None]:
     """
-    Fallback using EDGE-TTS (Microsoft Azure Cognitive) which is totally free,
-    does not hit API limits, and produces ultra realistic audio seamlessly.
+    Gemini TTS fallback — uses Edge TTS since google-cloud-texttospeech
+    is unavailable. Maps Gemini voice IDs to equivalent Edge voices.
     """
-    try:
-        import edge_tts
-        import base64
-        import json
-
-        # Edge TTS voices (using popular natural voices)
-        voice_map = {
-            "en-US-Journey-F": "en-US-AriaNeural",
-            "en-US-Journey-D": "en-US-ChristopherNeural",
-            "en-US-Studio-O":  "en-US-JennyNeural",
-            "en-US-Studio-Q":  "en-US-GuyNeural",
-            "en-GB-Journey-F": "en-GB-SoniaNeural",
-            "en-GB-Journey-D": "en-GB-RyanNeural",
-            "en-AU-Journey-F": "en-AU-NatashaNeural",
-            "en-IN-Journey-F": "en-IN-NeerjaNeural",
-        }
-        edge_voice = voice_map.get(voice_id, "en-US-AriaNeural")
-
-        # Map speed float to edge-tts rate format (e.g. '+20%', '-10%')
-        rate_int = int((speed - 1.0) * 100)
-        rate_str = f"+{rate_int}%" if rate_int >= 0 else f"{rate_int}%"
-
-        communicate = edge_tts.Communicate(text[:5000], edge_voice, rate=rate_str)
-        chunk_buffer = bytearray()
-
-        async for chunk in communicate.stream():
-            if chunk["type"] == "audio":
-                chunk_buffer.extend(chunk["data"])
-                # Send in reasonably sized chunks (e.g., 8KB)
-                if len(chunk_buffer) >= 8192:
-                    b64 = base64.b64encode(bytes(chunk_buffer)).decode()
-                    yield f"data: {json.dumps({'type': 'audio', 'chunk': b64})}\n\n"
-                    chunk_buffer.clear()
-                    
-        # Flush any remaining audio
-        if chunk_buffer:
-            b64 = base64.b64encode(bytes(chunk_buffer)).decode()
-            yield f"data: {json.dumps({'type': 'audio', 'chunk': b64})}\n\n"
-
-    except ImportError:
-        logger.warning("edge-tts not installed! Falling back to WebSpeech")
-        yield f"data: {json.dumps({'type': 'use_webspeech', 'text': text, 'speed': speed})}\n\n"
-    except Exception as exc:
-        logger.error("Edge TTS Error: %s", exc)
-        yield f"data: {json.dumps({'type': 'use_webspeech', 'text': text, 'speed': speed})}\n\n"
-
-    yield 'data: {"type": "done"}\n\n'
+    GEMINI_TO_EDGE = {
+        "en-US-Journey-F": "edge-en-US-AriaNeural",
+        "en-US-Journey-D": "edge-en-US-ChristopherNeural",
+        "en-US-Studio-O":  "edge-en-US-JennyNeural",
+        "en-US-Studio-Q":  "edge-en-US-GuyNeural",
+        "en-GB-Journey-F": "edge-en-GB-SoniaNeural",
+        "en-GB-Journey-D": "edge-en-GB-RyanNeural",
+        "en-AU-Journey-F": "edge-en-AU-NatashaNeural",
+        "en-IN-Journey-F": "edge-en-IN-NeerjaNeural",
+    }
+    edge_voice = GEMINI_TO_EDGE.get(voice_id, "edge-en-US-AriaNeural")
+    async for event in stream_tts_edge(text, edge_voice, speed):
+        yield event
 
 
 # ── OpenAI TTS ────────────────────────────────────────────────────────────────

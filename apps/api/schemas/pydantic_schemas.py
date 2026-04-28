@@ -44,11 +44,23 @@ class BookOut(BaseModel):
     status: str
     created_at: datetime
 
+    @property
+    def reading_time_minutes(self) -> int:
+        """Estimated listening time at 150 wpm average TTS speed."""
+        return max(1, round(self.total_words / 150))
+
     class Config:
         from_attributes = True
 
 class BookDetailOut(BookOut):
-    extracted_text: dict
+    # NOTE: extracted_text is intentionally excluded — it can be MBs of OCR data.
+    # Page text is served via GET /reader/{book_id}/text?page=N instead.
+    pass
+
+
+class BookMetaUpdate(BaseModel):
+    title: Optional[str] = Field(None, max_length=500)
+    author: Optional[str] = Field(None, max_length=255)
 
 
 # ── Progress ──────────────────────────────────────────────────────────────────

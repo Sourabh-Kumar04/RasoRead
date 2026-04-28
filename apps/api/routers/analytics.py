@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, Integer
 
 from core.database import get_db
 from core.security import get_current_user
@@ -40,6 +40,8 @@ async def ping_streak(
 
     user.streak_last_date = now
     user.longest_streak = max(user.longest_streak or 0, user.streak_days)
+    # Increment listening time (approximate: 1 ping ≈ 1 minute of active reading)
+    user.total_listening_minutes = (user.total_listening_minutes or 0) + 1
     db.add(user)
     await db.commit()
 
@@ -68,6 +70,7 @@ async def get_streak(
         "streak": user.streak_days if alive else 0,
         "longest": user.longest_streak or 0,
         "last_read": last.isoformat() if last else None,
+        "total_listening_minutes": user.total_listening_minutes or 0,
     }
 
 
@@ -88,14 +91,17 @@ async def analytics_summary(
 
     # Completion stats
     prog_result = await db.execute(
-        select(ReadingProgress).where(ReadingProgress.user_id == user_id)
+        select(
+            func.count(ReadingProgress.id).label("total"),
+            func.sum(
+                func.cast(ReadingProgress.completion_pct >= 95, Integer)
+            ).label("completed"),
+            func.avg(ReadingProgress.tts_speed).label("avg_speed"),
+        ).where(ReadingProgress.user_id == user_id)
     )
-    progress_rows = prog_result.scalars().all()
-    books_completed = sum(1 for p in progress_rows if p.completion_pct >= 95)
-    avg_speed = (
-        sum(p.tts_speed for p in progress_rows) / len(progress_rows)
-        if progress_rows else 1.0
-    )
+    prog_row = prog_result.one()
+    books_completed = int(prog_row.completed or 0)
+    avg_speed = round(float(prog_row.avg_speed or 1.0), 2)
 
     # Daily stats last 7 days
     seven_days_ago = datetime.now(timezone.utc) - timedelta(days=7)
@@ -134,7 +140,7 @@ async def analytics_summary(
     return {
         "event_counts": event_counts,
         "books_completed": books_completed,
-        "total_books": len(progress_rows),
+        "total_books": int(prog_row.total or 0),
         "avg_speed": round(avg_speed, 2),
         "daily_stats": daily_stats,
         "most_highlighted_books": most_highlighted,
@@ -147,11 +153,23 @@ async def log_event(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    # Allowlist event types — prevent arbitrary strings polluting analytics
+    ALLOWED_EVENTS = {
+        "page_view", "tts_start", "tts_pause", "tts_stop",
+        "highlight_create", "note_create", "bookmark_create",
+        "search", "ai_ask", "ai_summarize", "progress_save",
+        "book_open", "book_complete",
+    }
+    event_type = body.get("event_type", "unknown")
+    if event_type not in ALLOWED_EVENTS:
+        event_type = "unknown"
+
     event = AnalyticsEvent(
         user_id=current_user.id,
         book_id=body.get("book_id"),
-        event_type=body.get("event_type", "unknown"),
+        event_type=event_type,
         event_metadata=body.get("metadata", {}),
     )
     db.add(event)
+    await db.commit()
     return {"ok": True}

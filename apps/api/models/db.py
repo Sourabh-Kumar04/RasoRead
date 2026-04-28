@@ -40,8 +40,10 @@ class Book(Base):
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     author: Mapped[str] = mapped_column(String(255), nullable=True)
     file_type: Mapped[str] = mapped_column(String(10), nullable=False)
-    s3_key: Mapped[str] = mapped_column(Text, nullable=True)   # None when using DB storage
-    file_data: Mapped[bytes] = mapped_column(LargeBinary, nullable=True)  # raw bytes when STORAGE_BACKEND=db
+    s3_key: Mapped[str] = mapped_column(Text, nullable=True)
+    # WARNING: file_data stores raw bytes in Postgres — only used when STORAGE_BACKEND=db.
+    # Never use db backend in production. Use local or s3 instead.
+    file_data: Mapped[bytes] = mapped_column(LargeBinary, nullable=True)
     cover_url: Mapped[str] = mapped_column(Text, nullable=True)
     total_pages: Mapped[int] = mapped_column(Integer, default=0)
     total_words: Mapped[int] = mapped_column(Integer, default=0)
