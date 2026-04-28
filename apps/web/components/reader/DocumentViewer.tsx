@@ -212,10 +212,11 @@ function BookPageView({
   // If page image fails to load (EPUB/DOCX/TXT), fall back to text rendering
   const handleImageFailed = useCallback(() => setUseTextFallback(true), []);
 
-  // Use the viewMode from the store, but override if fallback is required
-  const effectiveViewMode = useTextFallback ? "text" : store.viewMode;
+  // Use the viewMode from the store, but override if fallback is required.
+  // Default to "original" if viewMode is undefined (old persisted state).
+  const effectiveViewMode = useTextFallback ? "text" : (store.viewMode ?? "original");
 
-  if (effectiveViewMode === "original") {
+  if (effectiveViewMode !== "text") {
     return (
       <div className="max-w-4xl mx-auto px-4 py-4">
         <PageImageViewer

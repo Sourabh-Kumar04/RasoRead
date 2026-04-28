@@ -44,6 +44,7 @@ export function PageImageViewer({
 }: PageImageViewerProps) {
   // Map of page number → rendered image data
   const [imageCache, setImageCache] = useState<Map<number, PageImage>>(new Map());
+  const imageCacheRef = useRef<Map<number, PageImage>>(new Map());
   const [loading, setLoading] = useState(true);
   const activeRef = useRef<HTMLDivElement | null>(null);
   const fetchingRef = useRef<Set<number>>(new Set());
@@ -54,8 +55,7 @@ export function PageImageViewer({
       // Determine which pages we actually need to fetch
       const needed: number[] = [];
       for (let p = startPage; p <= Math.min(startPage + BUFFER_AHEAD, totalPages); p++) {
-        if (!fetchingRef.current.has(p)) {
-          // Check cache via functional update to avoid stale closure
+        if (!fetchingRef.current.has(p) && !imageCacheRef.current.has(p)) {
           needed.push(p);
           fetchingRef.current.add(p);
         }
@@ -67,7 +67,10 @@ export function PageImageViewer({
         const pages: PageImage[] = res.data.pages;
         setImageCache((prev) => {
           const next = new Map(prev);
-          for (const pg of pages) next.set(pg.page, pg);
+          for (const pg of pages) {
+            next.set(pg.page, pg);
+            imageCacheRef.current.set(pg.page, pg);
+          }
           return next;
         });
       } catch {

@@ -214,6 +214,12 @@ export function FloatingControls({ tts, onNextPage, onPrevPage, voices }: Floati
                   >
                     {store.dyslexiaMode ? "Dyslexia Support ON" : "Standard Type"}
                   </button>
+                  <button
+                    onClick={store.toggleViewMode}
+                    className={cn("w-full py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider border transition-all", store.viewMode === "original" ? "border-primary/40 text-primary bg-primary/10" : "border-white/5 text-zinc-600 hover:border-white/20")}
+                  >
+                    {store.viewMode === "original" ? "📄 Real Page View" : "📝 Text View"}
+                  </button>
                 </div>
               </div>
             </motion.div>

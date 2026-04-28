@@ -173,11 +173,12 @@ export const useReaderStore = create<ReaderState>()(
       {
         name: "rasoread-reader",
         partialize: (state) => ({
-          ttsSpeed: state.ttsSpeed,
-          voiceId: state.voiceId,
-          theme: state.theme,
-          fontSize: state.fontSize,
+          ttsSpeed:    state.ttsSpeed,
+          voiceId:     state.voiceId,
+          theme:       state.theme,
+          fontSize:    state.fontSize,
           dyslexiaMode: state.dyslexiaMode,
+          viewMode:    state.viewMode,
         }),
       }
     )
