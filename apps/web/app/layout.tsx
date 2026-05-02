@@ -20,7 +20,6 @@ export const viewport: Viewport = {
 };
 
 import { PageTransition } from "@/components/ui/PageTransition";
-import { CustomCursor } from "@/components/ui/CustomCursor";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -30,7 +29,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="">
         <ServiceWorkerRegistrar />
-        <CustomCursor />
         <PageTransition>
           {children}
         </PageTransition>

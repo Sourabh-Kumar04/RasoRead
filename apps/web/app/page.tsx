@@ -2,303 +2,282 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import { 
-  Sparkles, BookOpen, Mic2, ArrowRight, 
-  Play, BarChart3, Moon, Zap, Layers,
-  ChevronRight, Globe, Command, Headphones
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
+import { ArrowRight, BookOpen, Headphones, Zap, BarChart3, CheckCircle, ChevronRight } from "lucide-react";
+
+const FEATURES = [
+  {
+    icon: Headphones,
+    title: "Studio AI Narration",
+    desc: "Edge TTS and GPT-4o voices read your books word-by-word with real-time text sync.",
+  },
+  {
+    icon: Zap,
+    title: "Instant Highlights",
+    desc: "Select text to highlight in four colours. Voice-command highlights with 'raso highlight … to …'.",
+  },
+  {
+    icon: BookOpen,
+    title: "Real Page View",
+    desc: "PDF pages render as crisp scanned images — read exactly what the author intended.",
+  },
+  {
+    icon: BarChart3,
+    title: "Reading Insights",
+    desc: "Track velocity, streaks, and comprehension. Every session logged automatically.",
+  },
+];
+
+const SOCIAL_PROOF = [
+  "PDF · EPUB · DOCX · TXT",
+  "Offline PWA",
+  "30+ AI Voices",
+  "AI Q&A on any paragraph",
+];
 
 export default function LandingPage() {
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
-  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("rasoread_access_token");
-    if (token) {
-      router.replace("/library");
-      setIsLoggedIn(true);
-    } else {
-      setIsLoggedIn(false);
-    }
-
-    const handleScroll = () => setScrolled(window.scrollY > 50);
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+    if (token) { router.replace("/library"); return; }
+    setIsLoggedIn(false);
   }, [router]);
 
-  if (isLoggedIn === null || isLoggedIn === true) {
+  if (isLoggedIn === null) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <div className="w-5 h-5 border-2 border-white/10 border-t-white/60 rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black text-white selection:bg-primary/30 selection:text-white font-sans">
-      {/* ── Background Patterns ─────────────────────────────────────────── */}
-      <div className="fixed inset-0 bg-grid z-0 opacity-20 pointer-events-none" />
-      <div className="fixed inset-0 bg-sanctuary z-0 opacity-40 pointer-events-none" />
-      
-      {/* ── Navigation ──────────────────────────────────────────────────────── */}
-      <nav className={cn(
-        "fixed top-6 left-1/2 -translate-x-1/2 z-[100] transition-all duration-500 px-6 py-3 rounded-2xl",
-        scrolled ? "w-[90%] md:w-auto bg-black/40 backdrop-blur-xl border border-white/10 shadow-2xl" : "w-full md:w-auto bg-transparent border-transparent"
-      )}>
-        <div className="flex items-center justify-between gap-12 md:gap-24">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-              <BookOpen size={18} className="text-white" fill="currentColor" />
-            </div>
-            <span className="font-semibold text-lg tracking-tight text-white font-sans">RasoRead</span>
-          </div>
+    <div className="min-h-screen bg-[#0a0a0a] text-white font-sans selection:bg-indigo-500/30">
+      {/* ── Ambient glow ── */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-indigo-600/10 blur-[120px] rounded-full" />
+      </div>
 
-          <div className="hidden md:flex items-center gap-8">
-            <a href="#features" className="text-sm text-zinc-400 hover:text-white transition-colors">Features</a>
-            <a href="#experience" className="text-sm text-zinc-400 hover:text-white transition-colors">Experience</a>
-            <button 
-              onClick={() => router.push("/login")}
-              className="text-sm text-zinc-400 hover:text-white transition-colors"
-            >
-              Sign In
-            </button>
-            <button 
-              onClick={() => router.push("/register")}
-              className="px-4 py-2 rounded-xl bg-white text-black text-sm font-semibold hover:bg-zinc-200 transition-all active:scale-95"
-            >
-              Get Started
-            </button>
+      {/* ── Nav ── */}
+      <nav className="relative z-50 flex items-center justify-between px-6 md:px-12 h-16 max-w-6xl mx-auto">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-indigo-500 flex items-center justify-center">
+            <BookOpen size={14} className="text-white" fill="currentColor" />
           </div>
+          <span className="font-bold text-base text-white tracking-tight">RasoRead</span>
         </div>
+
+        <div className="hidden md:flex items-center gap-8 text-sm text-zinc-400">
+          <a href="#features" className="hover:text-white transition-colors">Features</a>
+          <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
+          <button onClick={() => router.push("/login")} className="hover:text-white transition-colors">
+            Sign in
+          </button>
+        </div>
+
+        <button
+          onClick={() => router.push("/register")}
+          className="flex items-center gap-1.5 bg-white text-black text-sm font-semibold px-4 py-2 rounded-lg hover:bg-zinc-100 active:scale-95 transition-all"
+        >
+          Get started <ChevronRight size={14} />
+        </button>
       </nav>
 
-      {/* ── Hero Section ───────────────────────────────────────────────────── */}
-      <section className="relative pt-44 pb-32 overflow-hidden z-10">
-        <div className="max-w-5xl mx-auto px-6 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          >
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 mb-8">
-              <Sparkles size={14} className="text-primary" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-primary">Architecture of Silence</span>
-            </div>
-            
-            <h1 className="text-5xl md:text-8xl font-bold tracking-tight text-white mb-8 leading-[1.05]">
-              Your library, <br />
-              <span className="bg-gradient-to-r from-primary to-indigo-400 bg-clip-text text-transparent italic font-serif">in motion.</span>
-            </h1>
-            
-            <p className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto leading-relaxed mb-12">
-              A sanctuary for focused scholars. Experience your books through studio-quality AI voices and instant deep-learning insights.
-            </p>
-            
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <button 
-                onClick={() => router.push("/register")}
-                className="w-full sm:w-auto btn-primary flex items-center justify-center gap-2 group h-14 px-8"
-              >
-                Create Sanctuary
-                <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-              </button>
-              <button 
-                onClick={() => router.push("/login")}
-                className="w-full sm:w-auto h-14 px-8 rounded-xl bg-white/5 border border-white/10 text-white font-semibold hover:bg-white/10 transition-all"
-              >
-                Explore Demo
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* ── Feature Showcase: Real Book Experience ───────────────────────────── */}
-      <section id="features" className="py-32 relative z-10">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="text-center mb-20">
-            <h2 className="text-3xl md:text-5xl font-bold text-white mb-6 tracking-tight">The Neural Library</h2>
-            <p className="text-zinc-500 max-w-xl mx-auto font-medium">Experience your corpus as a living, breathing entity.</p>
+      {/* ── Hero ── */}
+      <section className="relative z-10 text-center pt-24 pb-20 px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="max-w-4xl mx-auto"
+        >
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 text-xs font-semibold mb-8">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+            Now in early access
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-            
-            {/* Feature 1: The Reader Preview (Large) */}
-            <motion.div 
-              whileHover={{ y: -8 }}
-              className="md:col-span-8 p-12 rounded-[3rem] glass-card overflow-hidden group"
-            >
-              <div className="flex flex-col md:flex-row gap-12 items-center">
-                <div className="flex-1 space-y-6">
-                  <div className="w-14 h-14 rounded-2xl bg-primary/20 flex items-center justify-center mb-8">
-                    <Headphones className="text-primary" size={28} />
-                  </div>
-                  <h3 className="text-4xl font-bold text-white leading-tight">Neural Narrative <br /><span className="text-primary italic font-serif">Synthesizer</span></h3>
-                  <p className="text-zinc-400 text-lg leading-relaxed">
-                    Studio-quality AI voices that don't just read—they perform. Our neural models understand subtext, emphasis, and the architectural rhythm of your books.
-                  </p>
-                  <div className="flex items-center gap-4 pt-4">
-                    <div className="audio-wave">
-                      <span className="h-4 animate-[wave_1s_ease-in-out_infinite]" />
-                      <span className="h-6 animate-[wave_1.2s_ease-in-out_infinite]" />
-                      <span className="h-8 animate-[wave_0.8s_ease-in-out_infinite]" />
-                      <span className="h-5 animate-[wave_1.1s_ease-in-out_infinite]" />
-                    </div>
-                    <span className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-600">Active Synthesis</span>
-                  </div>
-                </div>
+          <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-white leading-[1.06] mb-6">
+            Read smarter.<br />
+            <span className="text-zinc-400">Listen deeper.</span>
+          </h1>
 
-                {/* Real Book Page Simulation */}
-                <div className="w-full md:w-[320px] aspect-[3/4.5] bg-white rounded-lg shadow-2xl overflow-hidden relative border border-white/10 group-hover:scale-[1.05] transition-transform duration-700">
-                   <div className="absolute inset-0 p-8 flex flex-col gap-4">
-                      <div className="h-6 w-1/3 bg-zinc-100 rounded" />
-                      <div className="space-y-3 mt-4">
-                        <p className="text-[11px] leading-relaxed text-zinc-400">
-                          The architecture of silence is not merely the absence of sound. It is a deliberate construction of space where thoughts can breathe.
-                        </p>
-                        <p className="text-[11px] leading-relaxed text-zinc-900 font-medium bg-primary/20 ring-1 ring-primary/30 rounded-sm px-1 inline">
-                          In the stillness of the library, the mind finds its true resonance.
-                        </p>
-                        <p className="text-[11px] leading-relaxed text-zinc-400">
-                          Every book is a room. Every page a window. When we move through them with intent, the walls begin to speak.
-                        </p>
-                      </div>
-                      <div className="mt-auto flex justify-between items-center border-t border-zinc-100 pt-4">
-                         <span className="text-[9px] font-bold text-zinc-300">Page 124</span>
-                         <div className="w-12 h-1 bg-zinc-100 rounded-full" />
-                      </div>
-                   </div>
-                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
-                </div>
-              </div>
-            </motion.div>
+          <p className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto leading-relaxed mb-10">
+            RasoRead turns any PDF, EPUB or DOCX into an immersive AI audio experience — with word-by-word highlighting, voice commands, and deep reading analytics.
+          </p>
 
-            {/* Feature 2: Insights */}
-            <motion.div 
-              whileHover={{ y: -8 }}
-              className="md:col-span-4 p-10 rounded-[3rem] glass-card flex flex-col justify-between"
-            >
-              <div>
-                <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 flex items-center justify-center mb-8">
-                  <BarChart3 className="text-indigo-400" size={28} />
-                </div>
-                <h3 className="text-2xl font-bold text-white mb-4">Deep Insights</h3>
-                <p className="text-zinc-500 font-medium leading-relaxed">
-                  Real-time analysis of your reading patterns. Velocity, comprehension, and neural retention metrics.
-                </p>
-              </div>
-              
-              <div className="mt-12 space-y-4">
-                 {[60, 40, 80, 50].map((w, i) => (
-                    <div key={i} className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                       <motion.div 
-                        initial={{ width: 0 }}
-                        whileInView={{ width: `${w}%` }}
-                        className="h-full bg-indigo-500/40" 
-                       />
-                    </div>
-                 ))}
-              </div>
-            </motion.div>
-
-            {/* Feature 3: The Library Shelf */}
-            <motion.div 
-              whileHover={{ y: -8 }}
-              className="md:col-span-5 p-12 rounded-[3rem] glass-card relative overflow-hidden"
-            >
-              <div className="relative z-10">
-                <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-8">
-                  <Layers className="text-emerald-400" size={28} />
-                </div>
-                <h3 className="text-3xl font-bold text-white mb-4">Scholarly Shelf</h3>
-                <p className="text-zinc-500 font-medium leading-relaxed">
-                  Organize your collection with zero friction. Automatic metadata extraction and cover synthesis.
-                </p>
-              </div>
-              <div className="flex gap-4 mt-12 overflow-hidden mask-fade-right">
-                 {[1, 2, 3].map((i) => (
-                    <div key={i} className="w-24 shrink-0 aspect-[3/4] rounded-xl bg-gradient-to-b from-zinc-800 to-zinc-900 border border-white/10 shadow-xl" />
-                 ))}
-              </div>
-            </motion.div>
-
-            {/* Feature 4: Semantic Graph */}
-            <motion.div 
-              whileHover={{ y: -8 }}
-              className="md:col-span-7 p-12 rounded-[3rem] glass-card bg-gradient-to-br from-primary/10 via-transparent to-transparent group"
-            >
-              <div className="flex flex-col md:flex-row gap-12 items-center">
-                <div className="flex-1">
-                  <div className="w-14 h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center mb-8">
-                    <Zap className="text-amber-400" size={28} />
-                  </div>
-                  <h3 className="text-3xl font-bold text-white mb-4">Semantic Graph</h3>
-                  <p className="text-zinc-400 font-medium leading-relaxed">
-                    Connect the dots across your entire library. RasoRead maps related concepts between books automatically.
-                  </p>
-                </div>
-                
-                <div className="w-48 h-48 relative flex items-center justify-center">
-                   <div className="absolute inset-0 bg-primary/20 blur-3xl animate-pulse" />
-                   <svg className="w-full h-full relative z-10" viewBox="0 0 100 100">
-                      <circle cx="50" cy="50" r="4" fill="#818cf8" />
-                      <circle cx="20" cy="30" r="3" fill="#818cf8" opacity="0.4" />
-                      <circle cx="80" cy="40" r="3" fill="#818cf8" opacity="0.6" />
-                      <circle cx="40" cy="80" r="3" fill="#818cf8" opacity="0.3" />
-                      <line x1="50" y1="50" x2="20" y2="30" stroke="#818cf8" strokeWidth="0.5" opacity="0.2" />
-                      <line x1="50" y1="50" x2="80" y2="40" stroke="#818cf8" strokeWidth="0.5" opacity="0.4" />
-                      <line x1="50" y1="50" x2="40" y2="80" stroke="#818cf8" strokeWidth="0.5" opacity="0.1" />
-                   </svg>
-                </div>
-              </div>
-            </motion.div>
-
-          </div>
-        </div>
-      </section>
-
-      {/* ── CTA Section ────────────────────────────────────────────────────── */}
-      <section className="py-32 relative overflow-hidden z-10">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <motion.div
-             initial={{ opacity: 0 }}
-             whileInView={{ opacity: 1 }}
-             viewport={{ once: true }}
-          >
-            <h2 className="text-4xl md:text-6xl font-bold text-white mb-10 tracking-tight">
-              Start your journey <br /> into the silence.
-            </h2>
-            <button 
+          {/* CTA row */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-12">
+            <button
               onClick={() => router.push("/register")}
-              className="btn-primary h-16 px-10 text-lg shadow-2xl"
+              className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-400 text-white font-semibold px-7 py-3.5 rounded-xl shadow-[0_0_30px_rgba(99,102,241,0.35)] transition-all active:scale-95 group text-base"
             >
-              Join the Sanctuary
+              Start for free
+              <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
             </button>
-          </motion.div>
+            <button
+              onClick={() => router.push("/login")}
+              className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white px-5 py-3.5 rounded-xl border border-white/10 hover:border-white/20 bg-white/[0.03] transition-all"
+            >
+              Sign in to library
+            </button>
+          </div>
+
+          {/* Social proof pills */}
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            {SOCIAL_PROOF.map((s) => (
+              <span key={s} className="flex items-center gap-1.5 text-xs text-zinc-500 px-3 py-1 rounded-full bg-white/[0.04] border border-white/[0.06]">
+                <CheckCircle size={11} className="text-emerald-500" />
+                {s}
+              </span>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Hero product mockup */}
+        <motion.div
+          initial={{ opacity: 0, y: 32, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.8, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
+          className="mt-16 max-w-5xl mx-auto"
+        >
+          <div className="relative rounded-2xl overflow-hidden border border-white/10 shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_32px_80px_rgba(0,0,0,0.8)]">
+            {/* Browser chrome */}
+            <div className="bg-zinc-900 border-b border-white/10 px-4 py-3 flex items-center gap-2">
+              <div className="flex gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-zinc-700" />
+                <div className="w-3 h-3 rounded-full bg-zinc-700" />
+                <div className="w-3 h-3 rounded-full bg-zinc-700" />
+              </div>
+              <div className="flex-1 mx-4 bg-zinc-800 rounded-md h-6 flex items-center px-3">
+                <span className="text-xs text-zinc-500 font-mono">localhost:3000/reader/book</span>
+              </div>
+            </div>
+
+            {/* Simulated reader UI */}
+            <div className="bg-[#0f0f0f] p-8 min-h-[340px] flex gap-6">
+              {/* Page image mockup */}
+              <div className="hidden md:block w-[260px] shrink-0">
+                <div className="bg-white rounded-sm shadow-2xl p-6 text-zinc-800 text-xs leading-relaxed space-y-3 font-serif">
+                  <div className="font-bold text-sm mb-4">Chapter 3: The Neural Pathway</div>
+                  <p className="bg-indigo-100 border-b-2 border-indigo-400 rounded-sm px-0.5">The architecture of silence is not merely the absence of sound.</p>
+                  <p>It is a deliberate construction of space where thoughts can breathe and the mind finds its natural resonance with the material before it.</p>
+                  <p className="bg-amber-50 border-b-2 border-amber-300 rounded-sm px-0.5">Every book is a room. Every page a window.</p>
+                  <div className="pt-3 border-t border-zinc-200 flex justify-between text-[9px] text-zinc-400">
+                    <span>Page 47</span><span>RasoRead</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right panel — TTS controls mockup */}
+              <div className="flex-1 space-y-4">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-xs text-zinc-500 font-mono">neural synthesis active</span>
+                </div>
+
+                <div className="space-y-2">
+                  {["The architecture of silence is not merely", "the absence of sound. It is a deliberate", "construction of space where thoughts breathe."].map((line, i) => (
+                    <div key={i} className={`text-sm leading-relaxed rounded-lg px-3 py-1.5 transition-all ${i === 0 ? "bg-indigo-500/15 text-white ring-1 ring-indigo-500/30" : "text-zinc-500"}`}>
+                      {line}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Mini player */}
+                <div className="mt-6 flex items-center gap-4 bg-zinc-900/80 border border-white/10 rounded-2xl p-4">
+                  <div className="flex gap-1">
+                    {[12, 18, 10, 16, 8, 14].map((h, i) => (
+                      <div key={i} className="w-0.5 bg-indigo-400 rounded-full animate-pulse" style={{ height: h, animationDelay: `${i * 0.1}s` }} />
+                    ))}
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-xs font-semibold text-white">Fastapi Modern Python</div>
+                    <div className="text-[10px] text-zinc-500">Aria Neural · 1.25×</div>
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center">
+                    <div className="w-0 h-0 border-t-4 border-b-4 border-l-6 border-transparent border-l-white ml-0.5" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </section>
+
+      {/* ── Features ── */}
+      <section id="features" className="relative z-10 py-28 px-6">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-bold text-white mb-4 tracking-tight">
+              Everything you need to read better
+            </h2>
+            <p className="text-zinc-500 text-lg max-w-xl mx-auto">
+              Built for focused readers who want more from their books.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {FEATURES.map(({ icon: Icon, title, desc }, i) => (
+              <motion.div
+                key={title}
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.08 }}
+                className="group p-6 rounded-2xl border border-white/[0.08] bg-white/[0.03] hover:border-indigo-500/30 hover:bg-white/[0.05] transition-all"
+              >
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center mb-4 group-hover:bg-indigo-500/20 transition-colors">
+                  <Icon size={20} className="text-indigo-400" />
+                </div>
+                <h3 className="font-semibold text-white mb-2">{title}</h3>
+                <p className="text-sm text-zinc-500 leading-relaxed">{desc}</p>
+              </motion.div>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* ── Footer ─────────────────────────────────────────────────────────── */}
-      <footer className="py-12 border-t border-white/5 relative z-10 bg-black/50 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center">
-              <BookOpen size={14} className="text-primary" />
-            </div>
-            <span className="font-semibold text-sm text-zinc-400">RasoRead • 2024</span>
+      {/* ── CTA ── */}
+      <section id="pricing" className="relative z-10 py-28 px-6">
+        <div className="max-w-2xl mx-auto text-center">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4 tracking-tight">
+              Free while in early access
+            </h2>
+            <p className="text-zinc-500 mb-8 text-base leading-relaxed">
+              Upload unlimited books. No credit card. No time limit. Just better reading.
+            </p>
+            <button
+              onClick={() => router.push("/register")}
+              className="inline-flex items-center gap-2 bg-white text-black font-bold px-8 py-4 rounded-xl hover:bg-zinc-100 active:scale-95 transition-all text-base"
+            >
+              Create your library <ArrowRight size={16} />
+            </button>
+            <p className="text-xs text-zinc-600 mt-4">Sign up in 30 seconds · No CC required</p>
           </div>
-          <div className="flex gap-8">
-            <a href="/privacy" className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors">Privacy</a>
-            <a href="/terms" className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors">Terms</a>
-            <a href="https://discord.gg" target="_blank" rel="noopener noreferrer" className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors">Discord</a>
-            <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors">Twitter</a>
+        </div>
+      </section>
+
+      {/* ── Footer ── */}
+      <footer className="relative z-10 border-t border-white/[0.06] py-8 px-6">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded-md bg-indigo-500 flex items-center justify-center">
+              <BookOpen size={10} className="text-white" fill="currentColor" />
+            </div>
+            <span className="text-sm font-semibold text-zinc-400">RasoRead</span>
+            <span className="text-zinc-700 text-sm">· 2025</span>
+          </div>
+          <div className="flex items-center gap-6 text-xs text-zinc-600">
+            <a href="/privacy" className="hover:text-zinc-400 transition-colors">Privacy</a>
+            <a href="/terms" className="hover:text-zinc-400 transition-colors">Terms</a>
+            <span>Built with Next.js · FastAPI · PostgreSQL</span>
           </div>
         </div>
       </footer>
     </div>
   );
 }
-

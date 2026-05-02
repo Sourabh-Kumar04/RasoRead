@@ -153,7 +153,17 @@ async def get_progress(
     )
     progress = result.scalar_one_or_none()
     if not progress:
-        raise HTTPException(404, "No progress found â€” start reading first")
+        # Auto-create a fresh progress record on first open
+        progress = ReadingProgress(
+            book_id=book_id,
+            user_id=current_user.id,
+            current_page=1,
+            char_offset=0,
+            completion_pct=0.0,
+        )
+        db.add(progress)
+        await db.commit()
+        await db.refresh(progress)
     return progress
 
 

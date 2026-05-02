@@ -76,6 +76,7 @@ export interface ReaderState {
   removeHighlight: (id: string) => void;
   setAiQuestion: (q: string) => void;
   toggleViewMode: () => void;
+  setViewMode: (mode: "original" | "text") => void;
   reset: () => void;
 }
 
@@ -155,6 +156,7 @@ export const useReaderStore = create<ReaderState>()(
 
         setAiQuestion: (q) => set({ aiQuestion: q }),
         toggleViewMode: () => set((s) => ({ viewMode: s.viewMode === "original" ? "text" : "original" })),
+        setViewMode: (mode) => set({ viewMode: mode }),
 
         reset: () =>
           set({

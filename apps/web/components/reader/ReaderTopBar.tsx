@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, Bookmark, Focus, PanelRight, List, FileText, BookOpen } from "lucide-react";
+import { ArrowLeft, Bookmark, PanelRight, List, FileText, BookOpen } from "lucide-react";
 import { useReaderStore } from "@/stores/readerStore";
 import { readerApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -26,97 +26,102 @@ export function ReaderTopBar({ bookId, onOpenTOC }: ReaderTopBarProps) {
     }
   };
 
+  const pct = store.totalPages > 0
+    ? Math.round((store.currentPage / store.totalPages) * 100)
+    : 0;
+
   return (
     <header
       className={cn(
-        "fixed top-4 left-4 right-4 z-50 h-14",
-        "flex items-center justify-between px-6",
-        "bg-black/60 backdrop-blur-2xl border border-white/10 rounded-2xl",
-        "shadow-2xl transition-all duration-500",
+        "fixed top-3 left-3 right-3 z-50 h-12",
+        "flex items-center justify-between px-4",
+        "bg-[#111111]/90 backdrop-blur-2xl border border-white/[0.08] rounded-xl",
+        "shadow-[0_2px_16px_rgba(0,0,0,0.5)] transition-all duration-300",
         store.focusMode && "opacity-0 pointer-events-none"
       )}
     >
-      {/* Left: back + TOC + title */}
-      <div className="flex items-center gap-4 min-w-0">
+      {/* Left: back + title */}
+      <div className="flex items-center gap-3 min-w-0">
         <button
           onClick={() => router.push("/library")}
-          className="p-1.5 rounded-xl hover:bg-white/5 transition-all active:scale-90"
-          aria-label="Back"
+          className="p-1.5 rounded-lg hover:bg-white/[0.06] transition-all active:scale-90 text-zinc-400 hover:text-white"
+          aria-label="Back to library"
         >
-          <ArrowLeft size={18} className="text-zinc-400" />
+          <ArrowLeft size={16} />
         </button>
 
-        <div className="h-4 w-px bg-white/10 hidden sm:block" />
+        <div className="h-4 w-px bg-white/[0.08]" />
 
-        <div className="min-w-0 hidden md:block">
-          <p className="text-xs font-bold text-white truncate max-w-[200px]">
-            {store.bookTitle || "Reading"}
-          </p>
+        <p className="text-xs font-semibold text-zinc-300 truncate max-w-[140px] md:max-w-[240px] hidden sm:block">
+          {store.bookTitle || "Reading"}
+        </p>
+      </div>
+
+      {/* Center: progress bar */}
+      <div className="flex flex-col items-center gap-1 absolute left-1/2 -translate-x-1/2">
+        <div className="w-40 md:w-56 h-1 bg-white/[0.06] rounded-full overflow-hidden">
+          <motion.div
+            className="h-full bg-indigo-500 rounded-full"
+            initial={false}
+            animate={{ width: `${pct}%` }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+          />
         </div>
+        <span className="text-[9px] font-semibold text-zinc-600 tabular-nums">{pct}%</span>
       </div>
 
-      {/* Center: Progress */}
-      <div className="flex flex-col items-center gap-1.5">
-          <div className="flex items-center gap-3">
-             <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Chapter Progress</span>
-             <span className="text-[10px] font-bold text-primary">{Math.round((store.currentPage / store.totalPages) * 100)}%</span>
-          </div>
-          <div className="w-48 h-1 bg-white/5 rounded-full overflow-hidden border border-white/5">
-            <motion.div 
-               className="h-full bg-primary"
-               initial={false}
-               animate={{ width: `${Math.round((store.currentPage / store.totalPages) * 100)}%` }}
-            />
-          </div>
-      </div>
-
-      {/* Right: Actions */}
-      <div className="flex items-center gap-2">
+      {/* Right: actions */}
+      <div className="flex items-center gap-1">
+        {/* View mode toggle */}
         <button
           onClick={store.toggleViewMode}
           className={cn(
-            "flex items-center gap-2 h-9 px-3 rounded-xl transition-all border",
-            store.viewMode === "original" 
-              ? "bg-primary/10 border-primary/30 text-primary" 
-              : "bg-white/5 border-white/10 text-zinc-400 hover:text-white"
+            "flex items-center gap-1.5 h-8 px-3 rounded-lg text-[10px] font-semibold border transition-all",
+            store.viewMode === "original"
+              ? "bg-indigo-500/12 border-indigo-500/30 text-indigo-400"
+              : "bg-white/[0.04] border-white/[0.08] text-zinc-500 hover:text-zinc-300 hover:border-white/15"
           )}
-          title={store.viewMode === "original" ? "Switch to Text Mode" : "Switch to Original Page"}
+          title={store.viewMode === "original" ? "Real page view" : "Text view"}
         >
-          {store.viewMode === "original" ? <FileText size={16} /> : <BookOpen size={16} />}
-          <span className="text-[10px] font-bold uppercase tracking-widest hidden sm:block">
-            {store.viewMode === "original" ? "Original" : "Text"}
-          </span>
+          {store.viewMode === "original"
+            ? <><BookOpen size={13} /><span className="hidden sm:block">Real Page</span></>
+            : <><FileText size={13} /><span className="hidden sm:block">Text</span></>
+          }
         </button>
 
-        <div className="h-4 w-px bg-white/10 mx-1" />
+        <div className="h-4 w-px bg-white/[0.08] mx-0.5" />
 
         <button
           onClick={onOpenTOC}
-          className="p-2 rounded-xl hover:bg-white/5 transition-all text-zinc-400 hover:text-white"
-          title="Contents"
+          className="p-1.5 rounded-lg hover:bg-white/[0.06] transition-all text-zinc-500 hover:text-white"
+          title="Table of contents"
         >
-          <List size={18} />
+          <List size={16} />
         </button>
+
         <button
           onClick={addBookmark}
-          className="p-2 rounded-xl hover:bg-white/5 transition-all text-zinc-400 hover:text-white"
-          title="Bookmark"
+          className="p-1.5 rounded-lg hover:bg-white/[0.06] transition-all text-zinc-500 hover:text-white"
+          title="Bookmark this page"
         >
-          <Bookmark size={18} />
+          <Bookmark size={16} />
         </button>
-        <div className="h-4 w-px bg-white/10 mx-1" />
+
+        <div className="h-4 w-px bg-white/[0.08] mx-0.5" />
+
         <button
           onClick={() => store.toggleSmartPanel()}
           className={cn(
-            "p-2 rounded-xl transition-all",
-            store.showSmartPanel ? "bg-primary/20 text-primary border border-primary/20" : "text-zinc-400 hover:text-white hover:bg-white/5"
+            "p-1.5 rounded-lg transition-all",
+            store.showSmartPanel
+              ? "bg-indigo-500/15 text-indigo-400 border border-indigo-500/25"
+              : "text-zinc-500 hover:text-white hover:bg-white/[0.06]"
           )}
-          title="Insights"
+          title="AI insights panel"
         >
-          <PanelRight size={18} />
+          <PanelRight size={16} />
         </button>
       </div>
     </header>
   );
 }
-

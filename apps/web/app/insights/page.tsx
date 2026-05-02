@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowLeft, Brain, Zap, TrendingUp, BookOpen, Flame, Clock, Target } from "lucide-react";
 import { analyticsApi, booksApi } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 export default function InsightsPage() {
   const router = useRouter();

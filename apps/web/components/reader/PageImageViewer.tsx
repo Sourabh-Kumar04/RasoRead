@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { readerApi } from "@/lib/api";
 import { PageData } from "@/stores/readerStore";
+import { useReaderStore } from "@/stores/readerStore";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -26,7 +27,22 @@ interface PageImageViewerProps {
   isPlaying: boolean;
   /** Called when page image fails to load (e.g. non-PDF book) */
   onFailed?: () => void;
+  onParagraphDoubleClick?: (text: string, index: number) => void;
 }
+
+// Highlight color map → rgba overlay
+const HIGHLIGHT_COLORS: Record<string, string> = {
+  primary: "rgba(129, 140, 248, 0.30)",
+  yellow:  "rgba(251, 191, 36,  0.35)",
+  green:   "rgba(52,  211, 153, 0.30)",
+  red:     "rgba(248,  113, 113, 0.30)",
+};
+const HIGHLIGHT_BORDER: Record<string, string> = {
+  primary: "rgba(129, 140, 248, 0.7)",
+  yellow:  "rgba(251, 191, 36,  0.8)",
+  green:   "rgba(52,  211, 153, 0.7)",
+  red:     "rgba(248, 113, 113, 0.7)",
+};
 
 // ── Buffer size: current + 2 ahead ────────────────────────────────────────────
 const BUFFER_AHEAD = 2;
@@ -41,7 +57,9 @@ export function PageImageViewer({
   activeParagraphIndex,
   isPlaying,
   onFailed,
+  onParagraphDoubleClick,
 }: PageImageViewerProps) {
+  const store = useReaderStore();
   // Map of page number → rendered image data
   const [imageCache, setImageCache] = useState<Map<number, PageImage>>(new Map());
   const imageCacheRef = useRef<Map<number, PageImage>>(new Map());
@@ -63,7 +81,7 @@ export function PageImageViewer({
       if (needed.length === 0) return;
 
       try {
-        const res = await readerApi.getPagesBuffer(bookId, needed[0], needed.length);
+        const res = await readerApi.getPagesBuffer(bookId, needed[0], needed.length, 180);
         const pages: PageImage[] = res.data.pages;
         setImageCache((prev) => {
           const next = new Map(prev);
@@ -140,11 +158,11 @@ export function PageImageViewer({
         <div
           className="relative mx-auto overflow-hidden"
           style={{
-            maxWidth: "860px",
-            borderRadius: "2px",
-            outline: "1px solid rgba(255,255,255,0.08)",
+            maxWidth: "960px",
+            borderRadius: "3px",
+            outline: "1px solid rgba(255,255,255,0.06)",
             boxShadow:
-              "0 1px 4px rgba(0,0,0,0.5), 0 8px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04)",
+              "0 2px 8px rgba(0,0,0,0.6), 0 16px 60px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.05), inset 0 0 0 1px rgba(0,0,0,0.1)",
           }}
         >
           {/* White page background so PDF content is always visible on dark theme */}
@@ -157,6 +175,32 @@ export function PageImageViewer({
               draggable={false}
             />
           </div>
+
+          {/* ── Saved highlight overlays ─────────────────────────────── */}
+          {store.highlights
+            .filter((h) => h.page === currentPage)
+            .map((h) => {
+              // Find the matching paragraph by text content
+              const para = pageData?.paragraphs.find(
+                (p) => p.bbox && p.text.includes(h.text.slice(0, 30))
+              );
+              if (!para?.bbox) return null;
+              const [x0, y0, x1, y1] = para.bbox as number[];
+              return (
+                <div
+                  key={h.id}
+                  className="absolute pointer-events-none rounded-[1px] transition-all duration-300"
+                  style={{
+                    left:   `${(x0 / pdf_width)  * 100}%`,
+                    top:    `${(y0 / pdf_height) * 100}%`,
+                    width:  `${((x1 - x0) / pdf_width)  * 100}%`,
+                    height: `${((y1 - y0) / pdf_height) * 100}%`,
+                    background: HIGHLIGHT_COLORS[h.color] ?? HIGHLIGHT_COLORS.primary,
+                    boxShadow: `inset 0 -2px 0 ${HIGHLIGHT_BORDER[h.color] ?? HIGHLIGHT_BORDER.primary}`,
+                  }}
+                />
+              );
+            })}
 
           {/* ── TTS paragraph highlight overlays ─────────────────────────── */}
           {pageData?.paragraphs.map((para, idx) => {
@@ -172,7 +216,7 @@ export function PageImageViewer({
               <div
                 key={idx}
                 ref={isActive ? activeRef : null}
-                className="absolute pointer-events-none rounded-[2px] transition-all duration-300"
+                className="absolute pointer-events-auto rounded-[2px] transition-all duration-300"
                 style={{
                   left:   `${(x0 / pdf_width)         * 100}%`,
                   top:    `${(y0 / pdf_height)         * 100}%`,
@@ -185,7 +229,29 @@ export function PageImageViewer({
                     ? "inset 0 0 0 1.5px rgba(34, 197, 94, 0.5)"
                     : "none",
                 }}
-              />
+              >
+                {/* Invisible text for selection and double-click to play */}
+                <span 
+                  className="text-transparent selection:bg-primary/30 selection:text-transparent cursor-text"
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    height: "100%",
+                    fontSize: `${(y1 - y0) * 0.8}px`,
+                    lineHeight: 1,
+                    overflow: "hidden",
+                  }}
+                  onDoubleClick={(e) => {
+                    // Prevent default selection if we want to play
+                    e.preventDefault();
+                    if (onParagraphDoubleClick) {
+                      onParagraphDoubleClick(para.text, idx);
+                    }
+                  }}
+                >
+                  {para.text}
+                </span>
+              </div>
             );
           })}
         </div>

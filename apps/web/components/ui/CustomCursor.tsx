@@ -1,65 +1,47 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { motion, useSpring } from "framer-motion";
+import { useEffect, useRef } from "react";
+import { useSpring, useMotionValue, motion } from "framer-motion";
 
+/**
+ * Tiny indigo dot that trails the actual cursor position.
+ * - Uses width/height fixed at 12px — no size transitions, no gradient strings.
+ * - pointer-events: none so it never blocks clicks.
+ * - Only mounts on desktop (lg: hidden on mobile via the className).
+ * - Does NOT use cursor:none — the CSS pen cursor in globals.css handles the shape.
+ */
 export function CustomCursor() {
-  const [active, setActive] = useState(false);
-  
-  const mouseX = useSpring(0, { damping: 30, stiffness: 300 });
-  const mouseY = useSpring(0, { damping: 30, stiffness: 300 });
+  const cursorRef = useRef<HTMLDivElement>(null);
+  const x = useMotionValue(-100);
+  const y = useMotionValue(-100);
+  const springX = useSpring(x, { damping: 30, stiffness: 300 });
+  const springY = useSpring(y, { damping: 30, stiffness: 300 });
 
   useEffect(() => {
-    document.body.classList.add("has-custom-cursor");
-    
-    const moveMouse = (e: MouseEvent) => {
-      mouseX.set(e.clientX);
-      mouseY.set(e.clientY);
+    const onMove = (e: MouseEvent) => {
+      x.set(e.clientX);
+      y.set(e.clientY);
     };
-
-    const handleActive = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      const isClickable = target.closest("button, a, [role='button'], input, select, textarea");
-      setActive(!!isClickable);
-    };
-
-    window.addEventListener("mousemove", moveMouse);
-    window.addEventListener("mouseover", handleActive);
-
-    return () => {
-      document.body.classList.remove("has-custom-cursor");
-      window.removeEventListener("mousemove", moveMouse);
-      window.removeEventListener("mouseover", handleActive);
-    };
-  }, [mouseX, mouseY]);
+    window.addEventListener("mousemove", onMove, { passive: true });
+    return () => window.removeEventListener("mousemove", onMove);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
-    <>
-      {/* Outer Ring */}
-      <motion.div
-        className="fixed top-0 left-0 w-10 h-10 rounded-full border border-primary/20 pointer-events-none z-[9999] hidden lg:block"
-        style={{
-          x: mouseX,
-          y: mouseY,
-          translateX: "-50%",
-          translateY: "-50%",
-        }}
-        animate={{
-          scale: active ? 1.5 : 1,
-          backgroundColor: active ? "rgba(192, 193, 255, 0.05)" : "transparent",
-          borderColor: active ? "rgba(192, 193, 255, 0.4)" : "rgba(192, 193, 255, 0.2)",
-        }}
-      />
-      {/* Inner Dot */}
-      <motion.div
-        className="fixed top-0 left-0 w-1.5 h-1.5 rounded-full bg-primary pointer-events-none z-[9999] hidden lg:block"
-        style={{
-          x: mouseX,
-          y: mouseY,
-          translateX: "-50%",
-          translateY: "-50%",
-        }}
-      />
-    </>
+    <motion.div
+      ref={cursorRef}
+      className="fixed pointer-events-none z-[9999] hidden lg:block"
+      style={{
+        x: springX,
+        y: springY,
+        translateX: "-50%",
+        translateY: "-50%",
+        width: 8,
+        height: 8,
+        borderRadius: "50%",
+        background: "rgba(129, 140, 248, 0.5)",
+        boxShadow: "0 0 8px 2px rgba(129, 140, 248, 0.3)",
+      }}
+    />
   );
 }

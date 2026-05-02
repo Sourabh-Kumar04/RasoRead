@@ -53,6 +53,9 @@ export default function ReaderPage() {
     const token = localStorage.getItem("rasoread_access_token");
     if (!token) { router.push("/login"); return; }
 
+    // Always start in real page (original) view mode
+    store.setViewMode("original");
+
     const init = async () => {
       try {
         const bookRes = await booksApi.get(bookId);
@@ -99,8 +102,9 @@ export default function ReaderPage() {
     if (bookStatus !== "ready" || initialized) return;
     const setup = async () => {
       await loadProgress();
-      const startPage = store.currentPage || 1;
-      await loadPage(startPage);
+      // Read the latest state from the store directly, avoiding stale closures
+      const latestPage = useReaderStore.getState().currentPage || 1;
+      await loadPage(latestPage);
       setInitialized(true);
     };
     setup();
@@ -212,6 +216,27 @@ export default function ReaderPage() {
       },
       onAddNote: () => store.toggleSmartPanel("notes"),
       onPlayPause: () => store.setPlaying(!store.isPlaying),
+      onHighlight: async (color, text) => {
+        if (!text.trim()) return;
+        try {
+          const pageText = store.pageData?.paragraphs.map((p) => p.text).join("\n") ?? "";
+          const startChar = pageText.indexOf(text);
+          const endChar = startChar >= 0 ? startChar + text.length : text.length;
+          const { notesApi } = await import("@/lib/api");
+          const res = await notesApi.createHighlight({
+            book_id: bookId,
+            page: store.currentPage,
+            start_char: Math.max(0, startChar),
+            end_char: endChar,
+            text: text.slice(0, 500),
+            color,
+          });
+          store.addHighlight(res.data);
+          toast.success(`Highlighted: "${text.slice(0, 40)}…"`);
+        } catch {
+          toast.error("Could not save voice highlight");
+        }
+      },
     },
     initialized
   );
@@ -280,16 +305,13 @@ export default function ReaderPage() {
             </ErrorBoundary>
           </div>
 
-          {/* ── Draggable Floating Island ─────────────────── */}
-          <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden" ref={containerRef}>
+          {/* ── Fixed Bottom Dock ─────────────────── */}
+          <div className="fixed inset-x-0 bottom-8 pointer-events-none z-50 flex justify-center">
             <motion.div
-              drag
-              dragConstraints={containerRef}
-              dragElastic={0.05}
-              dragMomentum={false}
-              initial={{ x: "-50%", y: 0 }}
-              style={{ left: "50%", bottom: "2rem" }}
-              className="absolute pointer-events-auto flex flex-col items-center gap-3 w-[90vw] max-w-2xl cursor-grab active:cursor-grabbing shell-hide"
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
+              className="pointer-events-auto flex flex-col items-center gap-3 w-[90vw] max-w-2xl shell-hide"
             >
               <KaraokeBar />
               <FloatingControls

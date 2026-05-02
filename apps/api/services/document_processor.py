@@ -61,8 +61,13 @@ def _process_pdf(file_bytes: bytes) -> dict:
     total_words = 0
 
     for page_num, page in enumerate(doc):
-        # ── Primary: OCR the rendered page image ─────────────────────────────
-        paragraphs = _ocr_page_primary(page)
+        # ── Primary: Try extracting digital text first ──────────────────────────
+        paragraphs = _extract_digital_text(page)
+        
+        # ── Fallback: If no/little text found, assume scanned and OCR ───────────
+        if not paragraphs or sum(p["word_count"] for p in paragraphs) < 15:
+            paragraphs = _ocr_page_primary(page)
+
         total_words += sum(p["word_count"] for p in paragraphs)
 
         # ── Extract embedded images via PyMuPDF ───────────────────────────────
@@ -82,6 +87,35 @@ def _process_pdf(file_bytes: bytes) -> dict:
     }
 
 
+def _extract_digital_text(page) -> list:
+    """Extract digital text from a PDF page using PyMuPDF blocks."""
+    blocks = page.get_text("blocks")
+    paragraphs = []
+    
+    # Sort blocks vertically, then horizontally to maintain reading order
+    blocks.sort(key=lambda b: (b[1], b[0]))
+    
+    for b in blocks:
+        if b[6] == 0:  # text block
+            text = b[4].strip()
+            # Collapse multiple spaces and newlines into single spaces
+            text = re.sub(r"\n+", " ", text)
+            text = re.sub(r" {2,}", " ", text).strip()
+            
+            # Skip isolated page numbers / noise
+            if len(text) < 3 or re.match(r"^[-–—\s]*\d{1,4}[-–—\s]*$", text):
+                continue
+                
+            paragraphs.append({
+                "text": text,
+                "bbox": [b[0], b[1], b[2], b[3]],
+                "is_heading": _looks_like_heading(text),
+                "word_count": len(text.split()),
+                "ocr": False,
+            })
+    return paragraphs
+
+
 def _ocr_page_primary(page) -> list:
     """
     OCR a PDF page as the primary text extraction method.
@@ -94,9 +128,11 @@ def _ocr_page_primary(page) -> list:
     # Render page to image at 300 DPI for good OCR accuracy
     pix = page.get_pixmap(dpi=300)
     img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+    pdf_w = page.rect.width   # PDF points
+    pdf_h = page.rect.height
 
-    # Try structured extraction first (gives paragraph-level grouping)
-    paragraphs = _ocr_structured(img)
+    # Try structured extraction first (gives paragraph-level grouping + bboxes)
+    paragraphs = _ocr_structured(img, pdf_width=pdf_w, pdf_height=pdf_h)
     if paragraphs:
         return paragraphs
 
@@ -104,11 +140,13 @@ def _ocr_page_primary(page) -> list:
     return _ocr_simple(img)
 
 
-def _ocr_structured(img: Image.Image) -> list:
+def _ocr_structured(img: Image.Image, pdf_width: float = 0, pdf_height: float = 0) -> list:
     """
     Use pytesseract.image_to_data to get word-level data with block/paragraph
     grouping. Groups words into paragraphs, sorts by vertical position.
     Filters low-confidence noise (conf < 30).
+    Also computes a bbox [x0, y0, x1, y1] in PDF coordinate space so the
+    frontend can render highlight overlays on the page image.
     """
     try:
         data = pytesseract.image_to_data(
@@ -116,6 +154,8 @@ def _ocr_structured(img: Image.Image) -> list:
             config="--psm 3 --oem 3",
             output_type=pytesseract.Output.DICT,
         )
+
+        img_w, img_h = img.size  # pixel dimensions at 300 DPI
 
         # Group words by (block_num, par_num) — Tesseract's own paragraph detection
         paragraphs_map: dict = {}
@@ -126,12 +166,19 @@ def _ocr_structured(img: Image.Image) -> list:
             if not word or conf < 30:
                 continue
             key = (data["block_num"][i], data["par_num"][i])
+            x, y, w, h = data["left"][i], data["top"][i], data["width"][i], data["height"][i]
             if key not in paragraphs_map:
                 paragraphs_map[key] = {
                     "words": [],
-                    "top": data["top"][i],
-                    "left": data["left"][i],
+                    "top": y,
+                    "x0": x, "y0": y,
+                    "x1": x + w, "y1": y + h,
                 }
+            else:
+                paragraphs_map[key]["x0"] = min(paragraphs_map[key]["x0"], x)
+                paragraphs_map[key]["y0"] = min(paragraphs_map[key]["y0"], y)
+                paragraphs_map[key]["x1"] = max(paragraphs_map[key]["x1"], x + w)
+                paragraphs_map[key]["y1"] = max(paragraphs_map[key]["y1"], y + h)
             paragraphs_map[key]["words"].append(word)
 
         if not paragraphs_map:
@@ -150,9 +197,24 @@ def _ocr_structured(img: Image.Image) -> list:
                 continue
             if len(text) < 3:
                 continue
+
+            # Scale pixel bbox → PDF coordinate space (72 DPI)
+            # img was rendered at 300 DPI; pdf_width/pdf_height are in PDF points
+            if pdf_width and pdf_height and img_w and img_h:
+                sx = pdf_width / img_w
+                sy = pdf_height / img_h
+                bbox = [
+                    para["x0"] * sx,
+                    para["y0"] * sy,
+                    para["x1"] * sx,
+                    para["y1"] * sy,
+                ]
+            else:
+                bbox = [para["x0"], para["y0"], para["x1"], para["y1"]]
+
             result.append({
                 "text": text,
-                "bbox": None,
+                "bbox": bbox,
                 "is_heading": _looks_like_heading(text),
                 "word_count": len(para["words"]),
                 "ocr": True,
@@ -196,12 +258,14 @@ def _ocr_simple(img: Image.Image) -> list:
 
 def _looks_like_heading(text: str) -> bool:
     """Heuristic: short ALL-CAPS or Title Case lines are likely headings."""
-    words = text.split()
+    words = [w for w in text.split() if w.isalpha()]
+    if not words:
+        return False
     if len(words) > 12:
         return False
     if text.isupper():
         return True
-    if all(w[0].isupper() for w in words if w.isalpha()):
+    if all(w[0].isupper() for w in words):
         return True
     return False
 

@@ -1,7 +1,7 @@
 // RasoRead Service Worker
 // Caches static assets and API responses for offline reading
 
-const CACHE_NAME = "rasoread-v1";
+const CACHE_NAME = "rasoread-v3";
 const STATIC_ASSETS = [
   "/",
   "/library",

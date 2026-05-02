@@ -46,9 +46,10 @@ export function useTTSSync(options?: UseTTSSyncOptions) {
     const paras = useReaderStore.getState().pageData?.paragraphs ?? [];
     const nextIdx = findNextReadable(paras, paraIndex);
     if (nextIdx !== -1) {
+      const speed = useReaderStore.getState().ttsSpeed || 1;
       setTimeout(() => {
         selfPlayRef.current?.(paras[nextIdx].text, nextIdx);
-      }, 350);
+      }, 350 / speed);
     } else {
       onPageEndRef.current?.();
     }

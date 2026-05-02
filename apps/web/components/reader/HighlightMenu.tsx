@@ -9,6 +9,8 @@ interface HighlightMenuProps {
   onHighlight: (color: string, text: string, range: Range) => void;
   onNote: (text: string, range: Range) => void;
   onAskAI: (text: string) => void;
+  onMenuOpen?: () => void;
+  onMenuClose?: () => void;
 }
 
 const COLORS = [
@@ -18,7 +20,7 @@ const COLORS = [
   { id: "red",     label: "Red",    cls: "bg-red-400/60" },
 ];
 
-export function HighlightMenu({ onHighlight, onNote, onAskAI }: HighlightMenuProps) {
+export function HighlightMenu({ onHighlight, onNote, onAskAI, onMenuOpen, onMenuClose }: HighlightMenuProps) {
   const [visible, setVisible] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [selectedText, setSelectedText] = useState("");
@@ -67,6 +69,12 @@ export function HighlightMenu({ onHighlight, onNote, onAskAI }: HighlightMenuPro
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
+
+  // Notify parent of menu visibility changes
+  useEffect(() => {
+    if (visible) onMenuOpen?.();
+    else onMenuClose?.();
+  }, [visible, onMenuOpen, onMenuClose]);
 
   const handleHighlight = (colorId: string) => {
     if (!savedRange) return;

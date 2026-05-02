@@ -57,7 +57,8 @@ export function DocumentViewer({ bookId, tts, onBookEnd }: DocumentViewerProps) 
   const [modalImage, setModalImage] = useState<{
     b64: string; format: string; index: number;
   } | null>(null);
-  const [, setPendingNoteText] = useState<string | null>(null);
+  const [pendingNoteText, setPendingNoteText] = useState<string | null>(null);
+  const wasPlayingWhenMenuOpenedRef = useRef(false);
 
   // ── Scroll active paragraph into view during TTS ──────────────────────────
   useEffect(() => {
@@ -160,6 +161,23 @@ export function DocumentViewer({ bookId, tts, onBookEnd }: DocumentViewerProps) 
         onHighlight={handleHighlight} 
         onNote={handleNoteFromSelection} 
         onAskAI={handleAskAI}
+        onMenuOpen={() => {
+          if (store.isPlaying) {
+            wasPlayingWhenMenuOpenedRef.current = true;
+            tts.pause();
+          } else {
+            wasPlayingWhenMenuOpenedRef.current = false;
+          }
+        }}
+        onMenuClose={() => {
+          // Add a tiny delay so the UI selection clears before resuming
+          setTimeout(() => {
+            if (wasPlayingWhenMenuOpenedRef.current) {
+              tts.resume();
+              wasPlayingWhenMenuOpenedRef.current = false;
+            }
+          }, 100);
+        }}
       />
 
       {modalImage && (
@@ -227,6 +245,7 @@ function BookPageView({
           activeParagraphIndex={store.activeParagraphIndex}
           isPlaying={store.isPlaying}
           onFailed={handleImageFailed}
+          onParagraphDoubleClick={handleParagraphDoubleClick}
         />
       </div>
     );

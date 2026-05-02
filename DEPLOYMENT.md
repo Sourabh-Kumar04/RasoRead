@@ -24,46 +24,39 @@ open http://localhost:3000
 
 ---
 
-## Option B: Vercel + Railway (managed, zero-ops)
+## Option B: Supabase + Railway + Vercel (managed, zero-ops)
 
-### Frontend → Vercel
+### Step 1 — Supabase (Database + Storage)
 
-```bash
-cd apps/web
-npx vercel --prod
-```
+1. Create a project at [supabase.com](https://supabase.com)
+2. Go to Settings → Database → copy the connection string (use the "Transaction pooler" URI, change `postgres://` to `postgresql+asyncpg://`)
+3. Go to Storage → create a bucket called `books` (set to private)
+4. Go to Settings → API → copy the service role key (this is your S3 access key)
+5. Your S3 endpoint is: `https://<project-ref>.supabase.co/storage/v1/s3`
 
-Set these environment variables in Vercel dashboard:
-- `NEXT_PUBLIC_API_URL` = your Railway API URL (e.g. `https://rasoread-api.railway.app`)
+### Step 2 — Railway (API + Celery + Redis)
 
-### Backend + Worker → Railway
+1. Create a project at [railway.app](https://railway.app)
+2. Add a **Redis** service from the Railway dashboard
+3. Deploy the API: **New Service → GitHub repo** → set root directory to `apps/api`
+4. Add a persistent volume at `/data`
+5. Set all environment variables (from `.env.example`, production values)
 
-1. Create a Railway project
-2. Add a PostgreSQL database (pgvector plugin)
-3. Add a Redis database
-4. Deploy the `apps/api` directory as a service
-5. Add a second service with command: `celery -A core.celery_app worker --loglevel=info`
+Your API URL will be something like `https://rasoread-api.railway.app`.
 
-Environment variables to set in Railway:
-```
-DATABASE_URL        = (auto-set by Railway Postgres plugin)
-REDIS_URL           = (auto-set by Railway Redis plugin)
-JWT_SECRET          = (generate: openssl rand -hex 32)
-OPENAI_API_KEY      = sk-...
-ELEVENLABS_API_KEY  = (optional)
-STORAGE_BACKEND     = s3
-AWS_S3_BUCKET       = your-bucket-name
-AWS_REGION          = us-east-1
-AWS_ACCESS_KEY_ID   = ...
-AWS_SECRET_ACCESS_KEY = ...
-TTS_PROVIDER        = openai
-ALLOWED_ORIGINS     = https://your-vercel-app.vercel.app
-```
+### Step 3 — Vercel (Frontend)
 
-### Run migrations on Railway
+1. Import your GitHub repo at [vercel.com](https://vercel.com)
+2. Set the root directory to `apps/web`
+3. Add one environment variable: `NEXT_PUBLIC_API_URL` = your Railway API URL
+4. Deploy
+
+### Step 4 — Run Alembic migrations on Railway
+
+After the first deploy, run in the Railway console:
 
 ```bash
-railway run alembic upgrade head
+alembic upgrade head
 ```
 
 ---

@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     AWS_REGION: str = "us-east-1"
     AWS_ACCESS_KEY_ID: str = ""
     AWS_SECRET_ACCESS_KEY: str = ""
+    AWS_ENDPOINT_URL: str = ""  # Supabase Storage: https://<ref>.supabase.co/storage/v1/s3
 
     # ── AI Provider (for RAG / summarisation / Q&A) ───────────────────────────
     # Options: gemini | groq | openai

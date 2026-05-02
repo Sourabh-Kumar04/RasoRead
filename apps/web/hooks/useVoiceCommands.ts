@@ -14,6 +14,8 @@ interface VoiceCommandHandlers {
   onNextPage?: () => void;
   onPrevPage?: () => void;
   onPlayPause?: () => void;
+  /** Called with color and matched text span when voice highlight command fires */
+  onHighlight?: (color: string, text: string) => void;
 }
 
 export function useVoiceCommands(handlers: VoiceCommandHandlers, enabled = true) {
@@ -54,8 +56,32 @@ export function useVoiceCommands(handlers: VoiceCommandHandlers, enabled = true)
           store.toggleSmartPanel("ai");
         }
       } else if (cmd.includes("highlight")) {
-        // "highlight that" → open notes panel so user can manually highlight
-        store.toggleSmartPanel("notes");
+        // "raso highlight [start] to [end]" or "raso highlight [text]"
+        // Extracts the text span between 'highlight' and 'to' (if present),
+        // or everything after 'highlight'. Matches against current page paragraphs.
+        const afterHighlight = cmd.replace(/.*highlight\s*/i, "").trim();
+        if (afterHighlight) {
+          // Try "X to Y" pattern first
+          const toMatch = afterHighlight.match(/^(.+?)\s+to\s+(.+)$/i);
+          let matchText = afterHighlight;
+          if (toMatch) {
+            const startFrag = toMatch[1].trim();
+            const endFrag   = toMatch[2].trim();
+            // Find in current page paragraphs
+            const paragraphs = store.pageData?.paragraphs ?? [];
+            const fullPage = paragraphs.map((p) => p.text).join(" ");
+            const startIdx = fullPage.toLowerCase().indexOf(startFrag.toLowerCase());
+            const endSearch = fullPage.toLowerCase().indexOf(endFrag.toLowerCase());
+            if (startIdx !== -1 && endSearch !== -1) {
+              const endIdx = endSearch + endFrag.length;
+              matchText = fullPage.slice(startIdx, endIdx);
+            }
+          }
+          handlers.onHighlight?.("yellow", matchText);
+        } else {
+          // No text given — open notes panel
+          store.toggleSmartPanel("notes");
+        }
       }
     },
     [handlers, store]

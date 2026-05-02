@@ -26,6 +26,12 @@ services:
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      AI_PROVIDER: ${AI_PROVIDER:-gemini}
+      TTS_PROVIDER: ${TTS_PROVIDER:-gemini}
+      GEMINI_MODEL: ${GEMINI_MODEL:-}
+      GROQ_MODEL: ${GROQ_MODEL:-}
       JWT_SECRET: ${JWT_SECRET:-supersecretchangeme}
       ENVIRONMENT: development
     volumes:
@@ -52,6 +58,12 @@ services:
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      AI_PROVIDER: ${AI_PROVIDER:-gemini}
+      TTS_PROVIDER: ${TTS_PROVIDER:-gemini}
+      GEMINI_MODEL: ${GEMINI_MODEL:-}
+      GROQ_MODEL: ${GROQ_MODEL:-}
       JWT_SECRET: ${JWT_SECRET:-supersecretchangeme}
       ENVIRONMENT: development
     volumes:

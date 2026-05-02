@@ -5,27 +5,22 @@
 @tailwind utilities;
 
 @layer base {
-  @media (pointer: fine) {
-    body.has-custom-cursor {
-      cursor: none;
-    }
-    body.has-custom-cursor * {
-      cursor: none !important;
-    }
-  }
 
   :root { 
     color-scheme: dark; 
-    --bg-color: #000000;
+    --bg: #0a0a0a;
+    --primary: #6366f1;
   }
 
   html { scroll-behavior: smooth; }
 
   body {
-    background-color: var(--bg-color);
-    color: #fafafa;
+    background-color: var(--bg);
+    color: #f4f4f5;
     font-family: "Inter", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
+    min-height: 100dvh;
+    overflow-x: hidden;
     min-height: 100dvh;
     overflow-x: hidden;
   }
@@ -33,107 +28,90 @@
   * { box-sizing: border-box; }
 
   ::selection {
-    background: rgba(129, 140, 248, 0.4);
+    background: rgba(99, 102, 241, 0.35);
     color: #fff;
   }
 
-  /* ── Modern Grid Background ─────────────────────────────────────────── */
+  /* Interactive elements */
+  a, button, [role="button"], input, select, textarea, label,
+  [tabindex]:not([tabindex="-1"]), .word-token {
+    cursor: pointer;
+  }
+
+  /* ── Scrollbar ───────────────────────────────────────────────────── */
+  ::-webkit-scrollbar        { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track  { background: transparent; }
+  ::-webkit-scrollbar-thumb  { background: #27272a; border-radius: 8px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+
+  /* ── Grid pattern ────────────────────────────────────────────────── */
   .bg-grid {
     background-size: 40px 40px;
     background-image: 
-      linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      linear-gradient(to right, rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255,255,255,0.025) 1px, transparent 1px);
     mask-image: radial-gradient(ellipse at center, black, transparent 80%);
   }
-
-  .bg-sanctuary {
-    background-color: #000000;
-    background-image: 
-      radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.1) 0px, transparent 50%),
-      radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.1) 0px, transparent 50%);
-    background-attachment: fixed;
-  }
-
-  .bg-noise::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    opacity: 0.03;
-    z-index: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-  }
-
-  ::-webkit-scrollbar        { width: 5px; height: 5px; }
-  ::-webkit-scrollbar-track  { background: transparent; }
-  ::-webkit-scrollbar-thumb  { background: #27272a; border-radius: 10px; }
-  ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
 }
 
 @layer components {
-  /* ── Modern Glass Panel ───────────────────────────────────────────────── */
+
+  /* ── Glass surface ───────────────────────────────────────────────── */
   .glass-card {
-    background: rgba(15, 15, 15, 0.6);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 4px 32px rgba(0, 0, 0, 0.4);
+    background: rgba(14, 14, 14, 0.7);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 4px 32px rgba(0,0,0,0.4);
   }
 
   .glass-card:hover {
-    border-color: rgba(129, 140, 248, 0.3);
+    border-color: rgba(99, 102, 241, 0.25);
   }
 
-  .glass {
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
+  .glass-panel {
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    background: rgba(14, 14, 14, 0.85);
+    border: 1px solid rgba(255,255,255,0.07);
   }
 
-  /* ── Indigo glow ────────────────────────────────────────────────────────── */
-  .indigo-glow {
-    box-shadow: 0 0 40px -10px rgba(99, 102, 241, 0.4);
-  }
-
-  /* ── Modern Buttons ────────────────────────────────────────────────────── */
+  /* ── Buttons ─────────────────────────────────────────────────────── */
   .btn-primary {
-    @apply bg-primary text-white font-medium px-6 py-3 rounded-xl
-           hover:brightness-110 active:scale-[0.98] transition-all duration-200
-           shadow-[0_0_20px_rgba(129,140,248,0.3)] border border-white/10;
+    @apply bg-indigo-500 hover:bg-indigo-400 text-white font-semibold px-5 py-2.5 rounded-xl
+           active:scale-[0.98] transition-all duration-150
+           shadow-[0_0_20px_rgba(99,102,241,0.3)];
   }
 
   .btn-secondary {
-    @apply bg-white/10 text-white font-medium px-6 py-3 rounded-xl
-           hover:bg-white/15 active:scale-[0.98] transition-all duration-200
-           border border-white/5;
+    @apply bg-white/[0.06] text-white font-medium px-5 py-2.5 rounded-xl
+           hover:bg-white/10 active:scale-[0.98] transition-all duration-150
+           border border-white/10;
   }
 
   .btn-ghost {
-    @apply text-zinc-400 font-medium px-6 py-3 rounded-xl
+    @apply text-zinc-400 font-medium px-5 py-2.5 rounded-xl
            hover:bg-white/5 hover:text-white active:scale-[0.98]
-           transition-all duration-200;
+           transition-all duration-150;
   }
 
-
-  /* ── TTS word tokens ────────────────────────────────────────────────────── */
+  /* ── TTS word tokens ─────────────────────────────────────────────── */
   .word-token {
-    border-radius: 4px;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    cursor: pointer;
-    padding: 2px 4px;
-    margin: 0 -2px;
+    border-radius: 3px;
+    transition: all 0.15s ease;
+    padding: 1px 3px;
+    margin: 0 -1px;
   }
 
   .word-token:hover {
-    background: rgba(129, 140, 248, 0.1);
+    background: rgba(99, 102, 241, 0.12);
     color: #fff;
   }
 
   .word-token.tts-active-word {
-    background: rgba(129, 140, 248, 0.25);
+    background: rgba(99, 102, 241, 0.22);
     color: #fff;
-    box-shadow: 0 0 15px rgba(129, 140, 248, 0.2);
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
     font-weight: 600;
   }
 
@@ -141,13 +119,7 @@
     color: #52525b;
   }
 
-  /* ── Reader cursor — pen when hovering text ─────────────────────────────── */
-  .reader-text,
-  .word-token {
-    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23c0c1ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z'/%3E%3C/svg%3E") 0 24, text;
-  }
-
-  /* ── Reader typography ──────────────────────────────────────────────────── */
+  /* ── Reader typography ───────────────────────────────────────────── */
   .reader-text {
     font-family: "Newsreader", Georgia, serif;
     font-size: 20px;
@@ -159,47 +131,44 @@
 
   .reader-heading {
     font-family: "Newsreader", Georgia, serif;
-    font-size: 32px;
+    font-size: 30px;
     font-weight: 600;
     color: #fff;
-    margin-bottom: 2rem;
-    margin-top: 3.5rem;
+    margin-bottom: 1.5rem;
+    margin-top: 3rem;
     line-height: 1.2;
     font-style: italic;
   }
 
-  /* ── Highlight colors ───────────────────────────────────────────────────── */
+  /* ── Highlight colours ───────────────────────────────────────────── */
   .highlight-primary {
-    background: rgba(192, 193, 255, 0.15);
-    border-bottom: 2px solid rgba(128, 131, 255, 0.6);
+    background: rgba(165, 180, 252, 0.18);
+    border-bottom: 2px solid rgba(99, 102, 241, 0.6);
   }
 
   .highlight-yellow {
-    background: rgba(234, 179, 8, 0.12);
-    border-bottom: 2px solid rgba(234, 179, 8, 0.5);
+    background: rgba(234, 179, 8, 0.14);
+    border-bottom: 2px solid rgba(234, 179, 8, 0.55);
   }
 
   .highlight-green {
-    background: rgba(34, 197, 94, 0.1);
-    border-bottom: 2px solid rgba(34, 197, 94, 0.4);
+    background: rgba(34, 197, 94, 0.12);
+    border-bottom: 2px solid rgba(34, 197, 94, 0.45);
   }
 
   .highlight-red {
-    background: rgba(239, 68, 68, 0.1);
-    border-bottom: 2px solid rgba(239, 68, 68, 0.4);
+    background: rgba(239, 68, 68, 0.12);
+    border-bottom: 2px solid rgba(239, 68, 68, 0.45);
   }
 
-  /* ── Focus mode ─────────────────────────────────────────────────────────── */
+  /* ── Focus / reading modes ───────────────────────────────────────── */
   .focus-mode .shell-hide {
     opacity: 0.02;
-    transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: opacity 0.5s ease;
   }
 
-  .focus-mode .shell-hide:hover {
-    opacity: 1;
-  }
+  .focus-mode .shell-hide:hover { opacity: 1; }
 
-  /* ── Dyslexia mode ──────────────────────────────────────────────────────── */
   .dyslexia-mode .reader-text,
   .dyslexia-mode .word-token {
     font-family: "OpenDyslexic", "Comic Sans MS", sans-serif !important;
@@ -208,32 +177,27 @@
     line-height: 2.2 !important;
   }
 
-  /* ── Sepia mode ─────────────────────────────────────────────────────────── */
-  .sepia-mode {
-    filter: sepia(20%);
-  }
+  .sepia-mode { filter: sepia(15%); }
 
-  /* ── Reading progress bar ───────────────────────────────────────────────── */
+  /* ── Reading progress bar ────────────────────────────────────────── */
   .reading-progress-bar {
     position: fixed;
     top: 0;
     left: 0;
     height: 2px;
-    background-color: #c0c1ff;
+    background: #6366f1;
     z-index: 100;
   }
 
-  /* ── No scrollbar ───────────────────────────────────────────────────────── */
+  /* ── No scrollbar ────────────────────────────────────────────────── */
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-  /* ── New Design System Additions ────────────────────────────────────────── */
-  .glass-panel {
-    backdrop-filter: blur(20px);
-    background: rgba(19, 19, 19, 0.8);
-    border: 1px solid rgba(144, 143, 160, 0.15);
-  }
+  .reading-scrollbar::-webkit-scrollbar { width: 3px; }
+  .reading-scrollbar::-webkit-scrollbar-track { background: transparent; }
+  .reading-scrollbar::-webkit-scrollbar-thumb { background: rgba(165, 180, 252, 0.2); border-radius: 2px; }
 
+  /* ── Audio wave ──────────────────────────────────────────────────── */
   .audio-wave {
     display: flex;
     align-items: center;
@@ -242,24 +206,31 @@
   }
   .audio-wave span {
     width: 2px;
-    background: #c0c1ff;
+    background: #818cf8;
     border-radius: 1px;
   }
 
-  .reading-scrollbar::-webkit-scrollbar { width: 4px; }
-  .reading-scrollbar::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.02); }
-  .reading-scrollbar::-webkit-scrollbar-thumb { background: rgba(192, 193, 255, 0.2); border-radius: 2px; }
+  /* ── Misc utility ────────────────────────────────────────────────── */
+  .glass-border { border: 1px solid rgba(255,255,255,0.07); }
+  .top-glow     { border-top: 1px solid rgba(165,180,252,0.18); }
+  .reading-gradient { background: linear-gradient(to bottom, transparent 0%, rgba(10,10,10,1) 100%); }
+  .indigo-glow  { box-shadow: 0 0 40px -10px rgba(99,102,241,0.4); }
 
-  .glass-border { border: 1px solid rgba(144, 143, 160, 0.15); }
-  .top-glow { border-top: 1px solid rgba(192, 193, 255, 0.2); }
-  .reading-gradient { background: linear-gradient(to bottom, rgba(19, 19, 19, 0) 0%, rgba(19, 19, 19, 1) 100%); }
-  
   .knowledge-line {
-      stroke-dasharray: 4;
-      animation: dash 20s linear infinite;
+    stroke-dasharray: 4;
+    animation: dash 20s linear infinite;
   }
-  @keyframes dash {
-      to { stroke-dashoffset: -100; }
+
+  /* ── Mask fade ───────────────────────────────────────────────────── */
+  .mask-fade-right {
+    mask-image: linear-gradient(to right, black 60%, transparent 100%);
+  }
+
+  @keyframes dash { to { stroke-dashoffset: -100; } }
+
+  @keyframes wave {
+    0%, 100% { transform: scaleY(0.5); }
+    50%       { transform: scaleY(1.2); }
   }
 }
 

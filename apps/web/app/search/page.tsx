@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, ArrowLeft, BookOpen, Loader2 } from "lucide-react";
 import { aiApi } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 interface SearchResult {
   book_id: string;
