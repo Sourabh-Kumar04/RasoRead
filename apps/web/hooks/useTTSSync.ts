@@ -173,7 +173,7 @@ export function useTTSSync(options?: UseTTSSyncOptions) {
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-          body: JSON.stringify({ text, voice_id: voiceId, speed: ttsSpeed }),
+          body: JSON.stringify({ text, voice_id: voiceId, speed: ttsSpeed, book_id: useReaderStore.getState().bookId }),
         });
 
         if (!response.ok || !response.body) throw new Error("TTS request failed");

@@ -6,6 +6,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
+from pgvector.sqlalchemy import Vector
 from core.database import Base
 
 
@@ -29,7 +30,8 @@ class User(Base):
     total_listening_minutes: Mapped[int] = mapped_column(Integer, default=0)
 
     books: Mapped[list["Book"]] = relationship("Book", back_populates="user", cascade="all, delete-orphan")
-    progress: Mapped[list["ReadingProgress"]] = relationship("ReadingProgress", back_populates="user")
+    progress: Mapped[list["ReadingProgress"]] = relationship("ReadingProgress", back_populates="user", cascade="all, delete-orphan")
+    book_settings: Mapped[list["UserBookSettings"]] = relationship("UserBookSettings", back_populates="user", cascade="all, delete-orphan")
 
 
 class Book(Base):
@@ -59,6 +61,8 @@ class Book(Base):
     highlights: Mapped[list["Highlight"]] = relationship("Highlight", back_populates="book", cascade="all, delete-orphan")
     notes: Mapped[list["Note"]] = relationship("Note", back_populates="book", cascade="all, delete-orphan")
     bookmarks: Mapped[list["Bookmark"]] = relationship("Bookmark", back_populates="book", cascade="all, delete-orphan")
+    chunks: Mapped[list["DocumentChunk"]] = relationship("DocumentChunk", back_populates="book", cascade="all, delete-orphan")
+    user_settings: Mapped[list["UserBookSettings"]] = relationship("UserBookSettings", back_populates="book", cascade="all, delete-orphan")
 
 
 class ReadingProgress(Base):
@@ -134,3 +138,27 @@ class AnalyticsEvent(Base):
     event_type: Mapped[str] = mapped_column(String(50))
     event_metadata: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc, index=True)
+
+
+class UserBookSettings(Base):
+    __tablename__ = "user_book_settings"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    book_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("books.id", ondelete="CASCADE"), index=True)
+    tts_provider: Mapped[str] = mapped_column(String(20), default="gemini")
+    
+    user: Mapped["User"] = relationship("User", back_populates="book_settings")
+    book: Mapped["Book"] = relationship("Book", back_populates="user_settings")
+
+
+class DocumentChunk(Base):
+    __tablename__ = "document_chunks"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    book_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("books.id", ondelete="CASCADE"), index=True)
+    chunk_index: Mapped[int] = mapped_column(Integer)
+    text_content: Mapped[str] = mapped_column(Text, nullable=False)
+    embedding: Mapped[list[float]] = mapped_column(Vector(768), nullable=True)
+
+    book: Mapped["Book"] = relationship("Book", back_populates="chunks")

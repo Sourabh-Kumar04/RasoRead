@@ -8,8 +8,8 @@ from sqlalchemy import select, update
 
 from core.database import get_db
 from core.security import get_current_user
-from models.db import User, Book, ReadingProgress, Bookmark, AnalyticsEvent
-from schemas.pydantic_schemas import ProgressIn, ProgressOut, BookmarkIn, BookmarkOut
+from models.db import User, Book, ReadingProgress, Bookmark, AnalyticsEvent, UserBookSettings
+from schemas.pydantic_schemas import ProgressIn, ProgressOut, BookmarkIn, BookmarkOut, BookSettingsIn, BookSettingsOut
 from services.storage_service import StorageService
 
 router = APIRouter()
@@ -137,6 +137,52 @@ async def get_page_text(
         raise HTTPException(404, f"Page {page} not found")
 
     return page_data
+
+
+@router.get("/{book_id}/settings", response_model=BookSettingsOut)
+async def get_book_settings(
+    book_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(UserBookSettings).where(
+            UserBookSettings.book_id == book_id,
+            UserBookSettings.user_id == current_user.id,
+        )
+    )
+    settings = result.scalar_one_or_none()
+    if not settings:
+        settings = UserBookSettings(book_id=book_id, user_id=current_user.id, tts_provider="gemini")
+        db.add(settings)
+        await db.commit()
+        await db.refresh(settings)
+    return settings
+
+
+@router.post("/{book_id}/settings", response_model=BookSettingsOut)
+async def save_book_settings(
+    book_id: str,
+    body: BookSettingsIn,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(UserBookSettings).where(
+            UserBookSettings.book_id == book_id,
+            UserBookSettings.user_id == current_user.id,
+        )
+    )
+    settings = result.scalar_one_or_none()
+    if settings:
+        settings.tts_provider = body.tts_provider
+    else:
+        settings = UserBookSettings(book_id=book_id, user_id=current_user.id, tts_provider=body.tts_provider)
+        db.add(settings)
+    
+    await db.commit()
+    await db.refresh(settings)
+    return settings
 
 
 @router.get("/{book_id}/progress", response_model=ProgressOut)

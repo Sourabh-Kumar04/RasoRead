@@ -77,7 +77,7 @@ async def ask(
 ):
     """Ask a question about the book (RAG-based semantic search + LLM answer)."""
     await _check_book(book_id, current_user.id, db)
-    answer = ask_book(book_id, body.question)
+    answer = await ask_book(book_id, body.question)
     logger.info("Q&A: book=%s provider=%s", book_id, ACTIVE_PROVIDER)
     return AIResponse(content=answer, type="answer")
 
@@ -136,8 +136,8 @@ async def search_library(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Full-text semantic search across all of the user's books.
-    Uses the FAISS index for each ready book and returns ranked results.
+    Full-text search across all of the user's books.
+    Uses PostgreSQL websearch_to_tsquery.
     """
     q = q.strip()
     if not q:
@@ -145,42 +145,35 @@ async def search_library(
     if len(q) > 500:
         q = q[:500]  # Clamp to prevent abuse
 
-    from services.rag_service import _load_index
-    from pathlib import Path
+    from sqlalchemy import func
+    from models.db import DocumentChunk
 
-    # Get all ready books for this user
-    result = await db.execute(
-        select(Book).where(
+    # Search DocumentChunk joined with Book where user_id == current_user.id
+    stmt = (
+        select(DocumentChunk, Book.title, Book.author)
+        .join(Book, DocumentChunk.book_id == Book.id)
+        .where(
             Book.user_id == current_user.id,
-            Book.status == "ready",
+            func.to_tsvector('english', DocumentChunk.text_content).op('@@')(func.websearch_to_tsquery('english', q))
         )
+        .limit(10)
     )
-    books = result.scalars().all()
+    result = await db.execute(stmt)
+    rows = result.all()
 
     hits = []
-    for book in books:
-        try:
-            vs = _load_index(book.id)
-            if vs is None:
-                continue
-            docs = vs.similarity_search_with_score(q, k=2)
-            for doc, score in docs:
-                # Lower score = more similar in FAISS L2
-                if score < 1.5:
-                    hits.append({
-                        "book_id":    book.id,
-                        "book_title": book.title,
-                        "author":     book.author,
-                        "excerpt":    doc.page_content[:300],
-                        "score":      round(float(score), 3),
-                    })
-        except Exception:
-            continue
+    for row in rows:
+        chunk, title, author = row
+        hits.append({
+            "book_id": chunk.book_id,
+            "book_title": title,
+            "author": author,
+            "excerpt": chunk.text_content[:300],
+            "score": 1.0, # Full-text match
+        })
 
-    # Sort by relevance (ascending score = more relevant)
-    hits.sort(key=lambda x: x["score"])
     return {
-        "results": hits[:10],
+        "results": hits,
         "query": q,
         "ai_available": is_ai_available(),
     }

@@ -109,7 +109,7 @@ def get_available_voices() -> list[dict]:
     return voices
 
 
-def _resolve_tts_provider(voice_id: str) -> str:
+def _resolve_tts_provider(voice_id: str, provider_pref: str = None) -> str:
     """
     Determine which TTS provider to use based on voice_id prefix and availability.
 
@@ -130,7 +130,7 @@ def _resolve_tts_provider(voice_id: str) -> str:
         return "webspeech"
 
     # Honour explicit config preference
-    pref = settings.TTS_PROVIDER.lower()
+    pref = (provider_pref or settings.TTS_PROVIDER).lower()
     if pref == "edge"       and _HAS_EDGE_TTS:  return "edge"
     if pref == "gemini"     and _HAS_GEMINI:     return "gemini"
     if pref == "openai"     and _HAS_OPENAI:     return "openai"
@@ -401,9 +401,10 @@ async def stream_tts(
     text: str,
     voice_id: str = "edge-en-US-AriaNeural",
     speed: float = 1.0,
+    provider_pref: str = None,
 ) -> AsyncGenerator[str, None]:
     """Route TTS request to the appropriate provider."""
-    provider = _resolve_tts_provider(voice_id)
+    provider = _resolve_tts_provider(voice_id, provider_pref)
     logger.debug("TTS provider=%s voice=%s speed=%.2f", provider, voice_id, speed)
 
     if provider == "edge":

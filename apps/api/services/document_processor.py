@@ -468,7 +468,7 @@ def process_book_task(self, book_id: str, s3_key: str, file_type: str):
 
         # Index for RAG
         try:
-            index_book(book_id, result["pages"])
+            await index_book(book_id, result["pages"])
         except Exception:
             pass  # RAG indexing is best-effort
 
@@ -503,4 +503,41 @@ def process_book_task(self, book_id: str, s3_key: str, file_type: str):
                 await db.commit()
 
         _asyncio.run(_mark_error())
+        raise self.retry(exc=exc, countdown=30)
+
+
+@celery_app.task(name="reindex_books", bind=True)
+def reindex_books_task(self):
+    """
+    Finds all 'ready' books missing pgvector DocumentChunks and re-indexes them.
+    This serves as a data migration from FAISS to pgvector.
+    """
+    import asyncio
+    from core.database import AsyncSessionLocal
+    from models.db import Book, DocumentChunk
+    from services.rag_service import index_book
+    from sqlalchemy import select, func
+
+    async def _run():
+        async with AsyncSessionLocal() as db:
+            # Subquery: find books that already have chunks
+            subq = select(DocumentChunk.book_id).distinct()
+            
+            # Select books that are 'ready' but have no chunks
+            result = await db.execute(
+                select(Book)
+                .where(Book.status == "ready")
+                .where(Book.id.not_in(subq))
+            )
+            books = result.scalars().all()
+            
+            for book in books:
+                if not book.extracted_text or "pages" not in book.extracted_text:
+                    continue
+                # Re-index the book
+                await index_book(book.id, book.extracted_text["pages"])
+
+    try:
+        asyncio.run(_run())
+    except Exception as exc:
         raise self.retry(exc=exc, countdown=30)

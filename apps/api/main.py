@@ -9,7 +9,7 @@ from core.database import engine, Base
 from core.logging import setup_logging
 from core.rate_limit import RateLimitMiddleware
 from core.exceptions import register_exception_handlers
-from routers import auth, books, reader, tts, ai, analytics, notes
+from routers import auth, books, reader, tts, ai, analytics, notes, health
 
 setup_logging()
 
@@ -19,9 +19,7 @@ async def lifespan(app: FastAPI):
     import os
     # Ensure local upload directory exists
     Path(settings.LOCAL_STORAGE_PATH).mkdir(parents=True, exist_ok=True)
-    # FAISS index dir — use env var so it can be a named Docker volume
-    faiss_dir = os.environ.get("FAISS_INDEX_DIR", "./faiss_indexes")
-    Path(faiss_dir).mkdir(parents=True, exist_ok=True)
+    # FAISS has been replaced by pgvector. No need to create directory.
 
     # Create DB tables (Alembic handles migrations in production)
     async with engine.begin() as conn:
@@ -68,6 +66,4 @@ app.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
 app.include_router(notes.router,     prefix="/notes",     tags=["notes"])
 
 
-@app.get("/health", tags=["health"])
-async def health():
-    return {"status": "ok", "service": "rasoread-api", "version": "1.0.0"}
+app.include_router(health.router,    prefix="/health",    tags=["health"])

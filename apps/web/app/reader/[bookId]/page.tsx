@@ -9,7 +9,6 @@ import { cn } from "@/lib/utils";
 import { booksApi, ttsApi, readerApi, analyticsApi } from "@/lib/api";
 import { useReaderStore } from "@/stores/readerStore";
 import { useReadingSession } from "@/hooks/useReadingSession";
-import { useVoiceCommands } from "@/hooks/useVoiceCommands";
 import { useBookPolling } from "@/hooks/useBookPolling";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 
@@ -62,6 +61,15 @@ export default function ReaderPage() {
         const book = bookRes.data;
         store.setBook(book.id, book.title, book.total_pages, book.toc || []);
         setInitialStatus(book.status as BookStatus);
+
+        try {
+          const settingsRes = await readerApi.getSettings(bookId);
+          if (settingsRes.data?.tts_provider) {
+            store.setProvider(settingsRes.data.tts_provider);
+          }
+        } catch {
+          // ignore missing settings
+        }
       } catch (err: any) {
         if (err?.response?.status === 401) router.push("/login");
         else if (err?.response?.status === 404) {
@@ -201,45 +209,7 @@ export default function ReaderPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [store, tts, goToPage]);
 
-  // ── Voice commands ──────────────────────────────────────────────────────────
-  useVoiceCommands(
-    {
-      onNextPage: nextPage,
-      onPrevPage: prevPage,
-      onBookmark: async () => {
-        try {
-          await readerApi.addBookmark(bookId, store.currentPage, `Page ${store.currentPage}`);
-          toast.success(`Bookmarked page ${store.currentPage}`);
-        } catch {
-          toast.error("Could not save bookmark");
-        }
-      },
-      onAddNote: () => store.toggleSmartPanel("notes"),
-      onPlayPause: () => store.setPlaying(!store.isPlaying),
-      onHighlight: async (color, text) => {
-        if (!text.trim()) return;
-        try {
-          const pageText = store.pageData?.paragraphs.map((p) => p.text).join("\n") ?? "";
-          const startChar = pageText.indexOf(text);
-          const endChar = startChar >= 0 ? startChar + text.length : text.length;
-          const { notesApi } = await import("@/lib/api");
-          const res = await notesApi.createHighlight({
-            book_id: bookId,
-            page: store.currentPage,
-            start_char: Math.max(0, startChar),
-            end_char: endChar,
-            text: text.slice(0, 500),
-            color,
-          });
-          store.addHighlight(res.data);
-          toast.success(`Highlighted: "${text.slice(0, 40)}…"`);
-        } catch {
-          toast.error("Could not save voice highlight");
-        }
-      },
-    },
-    initialized
-  );
+
 
   // ── Loading / error states ──────────────────────────────────────────────────
   if (bookStatus === "processing" || bookStatus === "unknown") {

@@ -38,6 +38,7 @@ export interface ReaderState {
   isPaused: boolean;
   ttsSpeed: number;
   voiceId: string;
+  ttsProvider: string;
   activeWordIndex: number;
   activeParagraphIndex: number;
   wordTimestamps: WordTimestamp[];
@@ -63,6 +64,7 @@ export interface ReaderState {
   setPaused: (paused: boolean) => void;
   setSpeed: (speed: number) => void;
   setVoice: (voiceId: string) => void;
+  setProvider: (provider: string) => void;
   setActiveWord: (wordIndex: number, paraIndex: number) => void;
   setWordTimestamps: (timestamps: WordTimestamp[]) => void;
   setProgress: (page: number, offset: number, pct: number) => void;
@@ -96,6 +98,7 @@ export const useReaderStore = create<ReaderState>()(
         isPaused: false,
         ttsSpeed: 1.0,
         voiceId: "edge-en-US-AriaNeural",
+        ttsProvider: "edge",
         activeWordIndex: -1,
         activeParagraphIndex: 0,
         wordTimestamps: [],
@@ -123,6 +126,8 @@ export const useReaderStore = create<ReaderState>()(
         setSpeed: (speed) => set({ ttsSpeed: speed }),
 
         setVoice: (voiceId) => set({ voiceId }),
+
+        setProvider: (provider) => set({ ttsProvider: provider }),
 
         setActiveWord: (wordIndex, paraIndex) =>
           set({ activeWordIndex: wordIndex, activeParagraphIndex: paraIndex }),

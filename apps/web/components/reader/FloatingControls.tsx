@@ -232,6 +232,34 @@ export function FloatingControls({ tts, onNextPage, onPrevPage, voices }: Floati
             >
               <div className="grid grid-cols-2 gap-6 p-5">
 
+                <div className="space-y-2 col-span-2 md:col-span-1">
+                  <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest">
+                    AI Provider
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={store.ttsProvider}
+                      onChange={(e) => {
+                        const prov = e.target.value;
+                        store.setProvider(prov);
+                        // Save to backend immediately
+                        if (store.bookId) {
+                          import("@/lib/api").then((m) => {
+                            m.readerApi.saveSettings(store.bookId!, { tts_provider: prov }).catch(() => {});
+                          });
+                        }
+                      }}
+                      className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-xs font-medium text-white focus:outline-none focus:border-indigo-500/50 appearance-none"
+                    >
+                      <option value="edge">Edge TTS (Free)</option>
+                      <option value="gemini">Google Gemini</option>
+                      <option value="openai">OpenAI</option>
+                      <option value="elevenlabs">ElevenLabs</option>
+                    </select>
+                    <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
+                  </div>
+                </div>
+
                 {/* Voice selector */}
                 <div className="space-y-2 col-span-2 md:col-span-1">
                   <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest">

@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Search, Plus, BookOpen, BarChart2, LogOut, X, Headphones, Zap, Clock, Upload } from "lucide-react";
 import { BookCard } from "@/components/library/BookCard";
 import { UploadDropzone } from "@/components/library/UploadDropzone";
+import { StreakTracker } from "@/components/library/StreakTracker";
 import { booksApi, readerApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { StreakBadge } from "@/components/ui/StreakBadge";
@@ -144,62 +145,71 @@ export default function LibraryPage() {
           </div>
         )}
 
-        {/* Continue Reading - Premium Card */}
-        {continueBook && (
-          <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-14">
-            <div
-              className="group relative rounded-[2rem] overflow-hidden cursor-pointer border border-white/10 hover:border-primary/40 transition-all duration-500 shadow-2xl"
-              onClick={() => router.push(`/reader/${continueBook.id}`)}
-            >
-              {/* Background Glow */}
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-50" />
-              <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-[80px] -z-10 group-hover:bg-primary/10 transition-all" />
-              
-              <div className="relative flex flex-col md:flex-row gap-8 p-8 items-center bg-black/40 backdrop-blur-xl">
-                <div className="w-32 md:w-40 aspect-[3/4] rounded-2xl overflow-hidden shadow-[0_20px_40px_rgba(0,0,0,0.6)] shrink-0 border border-white/10 relative group-hover:scale-[1.02] transition-transform duration-500">
-                  {continueBook.cover_url ? (
-                    <img src={continueBook.cover_url} alt={continueBook.title} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-b from-primary/20 to-zinc-900 flex items-end p-4">
-                      <p className="font-serif italic text-sm text-white/80 leading-tight line-clamp-3">{continueBook.title}</p>
+        {/* Layout with Streak Tracker and Continue Reading */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-14">
+          <div className="col-span-1 lg:col-span-2">
+            {/* Continue Reading - Premium Card */}
+            {continueBook && (
+              <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="h-full">
+                <div
+                  className="group relative rounded-[2rem] overflow-hidden cursor-pointer border border-white/10 hover:border-primary/40 transition-all duration-500 shadow-2xl h-full flex"
+                  onClick={() => router.push(`/reader/${continueBook.id}`)}
+                >
+                  {/* Background Glow */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-50" />
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-[80px] -z-10 group-hover:bg-primary/10 transition-all" />
+                  
+                  <div className="relative flex flex-col sm:flex-row gap-8 p-8 items-center bg-black/40 backdrop-blur-xl w-full">
+                    <div className="w-32 md:w-40 aspect-[3/4] rounded-2xl overflow-hidden shadow-[0_20px_40px_rgba(0,0,0,0.6)] shrink-0 border border-white/10 relative group-hover:scale-[1.02] transition-transform duration-500">
+                      {continueBook.cover_url ? (
+                        <img src={continueBook.cover_url} alt={continueBook.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-b from-primary/20 to-zinc-900 flex items-end p-4">
+                          <p className="font-serif italic text-sm text-white/80 leading-tight line-clamp-3">{continueBook.title}</p>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-all" />
                     </div>
-                  )}
-                  <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-all" />
-                </div>
 
-                <div className="flex-1 w-full space-y-6">
-                  <div>
-                    <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-primary/20 border border-primary/30 mb-4">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Continue listening</span>
+                    <div className="flex-1 w-full space-y-6">
+                      <div>
+                        <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-primary/20 border border-primary/30 mb-4">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Continue listening</span>
+                        </div>
+                        <h2 className="text-3xl font-bold text-white tracking-tight leading-tight group-hover:text-primary transition-colors">{continueBook.title}</h2>
+                        {continueBook.author && <p className="text-lg text-zinc-500 mt-1 font-medium italic font-serif">— {continueBook.author}</p>}
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-zinc-500">
+                          <span>Progress: {Math.round(progress[continueBook.id]?.completion_pct || 0)}%</span>
+                          <span>Page {progress[continueBook.id]?.current_page} of {continueBook.total_pages}</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
+                          <motion.div 
+                            initial={{ width: 0 }}
+                            animate={{ width: `${progress[continueBook.id]?.completion_pct || 0}%` }}
+                            transition={{ duration: 1, ease: "easeOut" }}
+                            className="h-full bg-primary rounded-full shadow-[0_0_12px_rgba(129,140,248,0.6)]" 
+                          />
+                        </div>
+                      </div>
+
+                      <button className="btn-primary flex items-center gap-3 px-8 h-12 text-sm font-bold">
+                        <Headphones size={18} fill="currentColor" />
+                        Resume Session
+                      </button>
                     </div>
-                    <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight leading-tight group-hover:text-primary transition-colors">{continueBook.title}</h2>
-                    {continueBook.author && <p className="text-lg text-zinc-500 mt-1 font-medium italic font-serif">— {continueBook.author}</p>}
                   </div>
-
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-zinc-500">
-                      <span>Progress: {Math.round(progress[continueBook.id]?.completion_pct || 0)}%</span>
-                      <span>Page {progress[continueBook.id]?.current_page} of {continueBook.total_pages}</span>
-                    </div>
-                    <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
-                      <motion.div 
-                        initial={{ width: 0 }}
-                        animate={{ width: `${progress[continueBook.id]?.completion_pct || 0}%` }}
-                        transition={{ duration: 1, ease: "easeOut" }}
-                        className="h-full bg-primary rounded-full shadow-[0_0_12px_rgba(129,140,248,0.6)]" 
-                      />
-                    </div>
-                  </div>
-
-                  <button className="btn-primary flex items-center gap-3 px-8 h-12 text-sm font-bold">
-                    <Headphones size={18} fill="currentColor" />
-                    Resume Session
-                  </button>
                 </div>
-              </div>
-            </div>
-          </motion.section>
-        )}
+              </motion.section>
+            )}
+          </div>
+          
+          <div className="col-span-1 lg:col-span-1 flex flex-col">
+            <StreakTracker />
+          </div>
+        </div>
 
         {/* Library Header & Filters */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">

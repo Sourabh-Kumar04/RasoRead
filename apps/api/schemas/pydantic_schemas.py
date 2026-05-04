@@ -57,6 +57,13 @@ class BookDetailOut(BookOut):
     # Page text is served via GET /reader/{book_id}/text?page=N instead.
     pass
 
+class BookSettingsIn(BaseModel):
+    tts_provider: str
+
+class BookSettingsOut(BaseModel):
+    tts_provider: str
+    class Config:
+        from_attributes = True
 
 class BookMetaUpdate(BaseModel):
     title: Optional[str] = Field(None, max_length=500)
