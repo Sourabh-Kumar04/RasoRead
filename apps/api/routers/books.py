@@ -1,14 +1,15 @@
 import logging
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, func
+from typing import Optional
 
 from core.database import get_db
 from core.security import get_current_user
 from core.config import settings
-from models.db import User, Book
+from models.db import User, Book, Highlight, Note, ReadingProgress
 from schemas.pydantic_schemas import BookOut, BookDetailOut, BookMetaUpdate
-from services.storage_service import StorageService
+from services.storage_service import StorageService, upload_file
 from services.document_processor import process_book_task
 from services.cover_service import extract_cover, cover_to_data_url
 
@@ -30,14 +31,23 @@ async def list_books(
     db: AsyncSession = Depends(get_db),
     skip: int = 0,
     limit: int = 50,
+    sort: Optional[str] = None,
 ):
-    result = await db.execute(
-        select(Book)
-        .where(Book.user_id == current_user.id)
-        .order_by(Book.created_at.desc())
-        .offset(skip)
-        .limit(limit)
-    )
+    """List books with optional sorting: title, author, created_at, last_read."""
+    query = select(Book).where(Book.user_id == current_user.id)
+
+    # Apply sorting
+    if sort == "title":
+        query = query.order_by(Book.title.asc())
+    elif sort == "author":
+        query = query.order_by(Book.author.asc().nullslast())
+    elif sort == "last_read":
+        # Join with ReadingProgress to sort by last_read_at
+        query = query.outerjoin(ReadingProgress).order_by(ReadingProgress.last_read_at.desc().nullslast())
+    else:
+        query = query.order_by(Book.created_at.desc())
+
+    result = await db.execute(query.offset(skip).limit(limit))
     return result.scalars().all()
 
 
@@ -168,3 +178,106 @@ async def _get_user_book(book_id: str, user_id: str, db: AsyncSession) -> Book:
     if not book:
         raise HTTPException(404, "Book not found")
     return book
+
+
+@router.post("/{book_id}/reprocess")
+async def reprocess_book(
+    book_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Re-trigger processing for a book that failed or needs re-indexing."""
+    book = await _get_user_book(book_id, current_user.id, db)
+
+    # Reset status to processing
+    book.status = "processing"
+    book.error_message = None
+    db.add(book)
+    await db.commit()
+
+    # Re-queue processing task
+    process_book_task.delay(book.id, book.s3_key, book.file_type)
+
+    return {"message": "Book re-processing started", "status": "processing"}
+
+
+@router.patch("/{book_id}/cover")
+async def upload_cover(
+    book_id: str,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Upload a custom cover image for a book."""
+    book = await _get_user_book(book_id, current_user.id, db)
+
+    allowed_types = {"image/jpeg", "image/png", "image/webp"}
+    if file.content_type not in allowed_types:
+        raise HTTPException(400, "Invalid file type. Allowed: JPEG, PNG, WebP")
+
+    file_data = await file.read()
+    if len(file_data) > 5 * 1024 * 1024:  # 5MB limit
+        raise HTTPException(400, "File too large. Maximum 5MB")
+
+    cover_url = await upload_file(file_data, f"covers/{book.id}/{file.filename}", file.content_type)
+
+    book.cover_url = cover_url
+    db.add(book)
+    await db.commit()
+
+    return {"cover_url": cover_url}
+
+
+@router.get("/{book_id}/export")
+async def export_book(
+    book_id: str,
+    format: str = "md",
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Export highlights and notes for a book in various formats."""
+    book = await _get_user_book(book_id, current_user.id, db)
+
+    # Get all highlights and notes
+    highlights_result = await db.execute(
+        select(Highlight).where(Highlight.book_id == book_id, Highlight.user_id == current_user.id)
+    )
+    highlights = highlights_result.scalars().all()
+
+    notes_result = await db.execute(
+        select(Note).where(Note.book_id == book_id, Note.user_id == current_user.id)
+    )
+    notes = notes_result.scalars().all()
+
+    # Format based on requested type
+    if format == "json":
+        return {
+            "book": {"title": book.title, "author": book.author},
+            "highlights": [
+                {"text": h.text, "page": h.page, "color": h.color, "created_at": h.created_at.isoformat()}
+                for h in highlights
+            ],
+            "notes": [
+                {"content": n.content, "page": n.page, "source": n.source, "created_at": n.created_at.isoformat()}
+                for n in notes
+            ],
+        }
+    elif format == "csv":
+        lines = ["Type,Page,Content,Created At"]
+        for h in highlights:
+            lines.append(f"highlight,{h.page},\"{h.text.replace('\"', '\"\"')}\",{h.created_at.isoformat()}")
+        for n in notes:
+            lines.append(f"note,{n.page or ''},\"{n.content.replace('\"', '\"\"')}\",{n.created_at.isoformat()}")
+        return "\n".join(lines)
+    else:  # markdown
+        md = f"# {book.title}\n"
+        if book.author:
+            md += f"**Author:** {book.author}\n\n"
+        md += "## Highlights\n\n"
+        for h in highlights:
+            md += f"> {h.text} (p. {h.page})\n\n"
+        md += "## Notes\n\n"
+        for n in notes:
+            page_info = f" (p. {n.page})" if n.page else ""
+            md += f"- {n.content}{page_info}\n"
+        return md

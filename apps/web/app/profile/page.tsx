@@ -17,6 +17,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [usage, setUsage] = useState<any>(null);
   const [settings, setSettings] = useState({
     defaultVoice: "edge-en-US-AriaNeural",
     defaultSpeed: 1.0,
@@ -28,13 +29,23 @@ export default function ProfilePage() {
     const token = localStorage.getItem("rasoread_access_token");
     if (!token) { router.push("/login"); return; }
 
-    authApi.me()
-      .then((res) => {
-        setUser(res.data);
-        session.setUser(res.data.id, res.data.name || "", res.data.email);
-        if (res.data.settings) {
-          setSettings((s) => ({ ...s, ...res.data.settings }));
+    Promise.all([
+      authApi.me(),
+      authApi.me().then(() => {
+        // Get usage via a direct call that won't redirect on 401
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        return fetch(`${API_URL}/auth/me/usage`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }).then(r => r.json()).catch(() => null);
+      }),
+    ])
+      .then(([userRes, usageRes]) => {
+        setUser(userRes.data);
+        session.setUser(userRes.data.id, userRes.data.name || "", userRes.data.email);
+        if (userRes.data.settings) {
+          setSettings((s) => ({ ...s, ...userRes.data.settings }));
         }
+        if (usageRes) setUsage(usageRes);
       })
       .catch(() => router.push("/login"))
       .finally(() => setLoading(false));
@@ -115,12 +126,50 @@ export default function ProfilePage() {
                 <div>
                   <h2 className="text-2xl font-bold text-white tracking-tight">{user?.name || "Member"}</h2>
                   <p className="text-zinc-500 font-medium mb-2">{user?.email}</p>
+                  {user?.is_verified && (
+                    <span className="text-[10px] font-bold text-green-500 uppercase tracking-widest block">
+                      Verified Account
+                    </span>
+                  )}
                   <span className="text-[10px] font-bold text-zinc-700 uppercase tracking-widest block">
                     Identity Established {user?.created_at ? relativeTime(user.created_at) : "—"}
                   </span>
                 </div>
               </div>
             </motion.div>
+
+            {/* Usage Card */}
+            {usage && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.05 }}
+                className="p-8 rounded-[2.5rem] bg-zinc-900/40 border border-white/10 space-y-6"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-1 h-4 bg-primary rounded-full" />
+                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Daily Usage</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5">
+                    <p className="text-xs text-zinc-500 font-medium mb-1">TTS Requests</p>
+                    <p className="text-2xl font-bold text-white">{usage.tts_requests || 0}</p>
+                    <p className="text-[10px] text-zinc-600">/ {usage.tts_limit || 100} daily</p>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5">
+                    <p className="text-xs text-zinc-500 font-medium mb-1">AI Queries</p>
+                    <p className="text-2xl font-bold text-white">{usage.ai_requests || 0}</p>
+                    <p className="text-[10px] text-zinc-600">/ {usage.ai_limit || 50} daily</p>
+                  </div>
+                </div>
+                <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary rounded-full"
+                    style={{ width: `${Math.min(100, ((usage.tts_requests || 0) / (usage.tts_limit || 100)) * 100)}%` }}
+                  />
+                </div>
+              </motion.div>
+            )}
 
             {/* Reading Preferences Card */}
             <motion.div

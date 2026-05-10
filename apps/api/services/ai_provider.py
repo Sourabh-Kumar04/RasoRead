@@ -157,3 +157,99 @@ async def describe_image(image_b64: str) -> str:
     elif HAS_OPENAI:
         return await describe_image_openai(image_b64)
     return "Image description requires a GEMINI_API_KEY or OPENAI_API_KEY."
+
+
+# ── Chat completion (non-streaming) ───────────────────────────────────────────
+
+async def chat_completion(prompt: str, temperature: float = 0.2) -> str:
+    """Send a chat completion request and return the text response."""
+    if ACTIVE_PROVIDER == "gemini":
+        return await _chat_gemini(prompt, temperature)
+    elif ACTIVE_PROVIDER == "groq":
+        return await _chat_groq(prompt, temperature)
+    elif ACTIVE_PROVIDER == "openai":
+        return await _chat_openai(prompt, temperature)
+    return "AI provider not available"
+
+
+async def _chat_gemini(prompt: str, temperature: float) -> str:
+    import google.generativeai as genai
+    genai.configure(api_key=settings.GEMINI_API_KEY)
+    model = genai.GenerativeModel(settings.GEMINI_MODEL)
+    response = model.generate_content(prompt)
+    return response.text.strip()
+
+
+async def _chat_groq(prompt: str, temperature: float) -> str:
+    from groq import AsyncGroq
+    client = AsyncGroq(api_key=settings.GROQ_API_KEY)
+    response = await client.chat.completions.create(
+        model=settings.GROQ_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=temperature,
+    )
+    return response.choices[0].message.content
+
+
+async def _chat_openai(prompt: str, temperature: float) -> str:
+    from openai import AsyncOpenAI
+    client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+    response = await client.chat.completions.create(
+        model=settings.OPENAI_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=temperature,
+    )
+    return response.choices[0].message.content
+
+
+# ── Streaming chat completion ────────────────────────────────────────────────
+
+async def chat_completion_stream(prompt: str, temperature: float = 0.2):
+    """Yield chat completion response chunks as they become available."""
+    if ACTIVE_PROVIDER == "gemini":
+        async for chunk in _chat_gemini_stream(prompt, temperature):
+            yield chunk
+    elif ACTIVE_PROVIDER == "groq":
+        async for chunk in _chat_groq_stream(prompt, temperature):
+            yield chunk
+    elif ACTIVE_PROVIDER == "openai":
+        async for chunk in _chat_openai_stream(prompt, temperature):
+            yield chunk
+
+
+async def _chat_gemini_stream(prompt: str, temperature: float):
+    import google.generativeai as genai
+    genai.configure(api_key=settings.GEMINI_API_KEY)
+    model = genai.GenerativeModel(settings.GEMINI_MODEL)
+    response = model.generate_content(prompt, stream=True)
+    for chunk in response:
+        if chunk.text:
+            yield chunk.text
+
+
+async def _chat_groq_stream(prompt: str, temperature: float):
+    from groq import AsyncGroq
+    client = AsyncGroq(api_key=settings.GROQ_API_KEY)
+    response = await client.chat.completions.create(
+        model=settings.GROQ_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=temperature,
+        stream=True,
+    )
+    async for chunk in response:
+        if chunk.choices and chunk.choices[0].delta.content:
+            yield chunk.choices[0].delta.content
+
+
+async def _chat_openai_stream(prompt: str, temperature: float):
+    from openai import AsyncOpenAI
+    client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+    response = await client.chat.completions.create(
+        model=settings.OPENAI_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=temperature,
+        stream=True,
+    )
+    async for chunk in response:
+        if chunk.choices and chunk.choices[0].delta.content:
+            yield chunk.choices[0].delta.content

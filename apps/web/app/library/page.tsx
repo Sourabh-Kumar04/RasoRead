@@ -13,6 +13,7 @@ import { StreakBadge } from "@/components/ui/StreakBadge";
 import { OnboardingModal } from "@/components/ui/OnboardingModal";
 
 type FilterTab = "all" | "reading" | "finished" | "unread";
+type SortOption = "created_at" | "title" | "author" | "last_read";
 
 export default function LibraryPage() {
   const router = useRouter();
@@ -21,6 +22,7 @@ export default function LibraryPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterTab>("all");
+  const [sort, setSort] = useState<SortOption>("created_at");
   const [showUpload, setShowUpload] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -35,10 +37,15 @@ export default function LibraryPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
+  useEffect(() => {
+    fetchBooks();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sort]);
+
   const fetchBooks = async () => {
     setLoading(true);
     try {
-      const res = await booksApi.list();
+      const res = await booksApi.list(sort);
       setBooks(res.data);
       const progEntries = await Promise.allSettled(
         res.data.map((b: any) => readerApi.getProgress(b.id))
@@ -102,6 +109,7 @@ export default function LibraryPage() {
             <nav className="hidden md:flex items-center gap-6">
               <span className="text-white text-sm font-semibold">Library</span>
               <button onClick={() => router.push("/insights")} className="text-zinc-500 hover:text-white transition-colors text-sm font-medium">Insights</button>
+              <button onClick={() => router.push("/collections")} className="text-zinc-500 hover:text-white transition-colors text-sm font-medium">Collections</button>
               <button onClick={() => router.push("/profile")} className="text-zinc-500 hover:text-white transition-colors text-sm font-medium">Profile</button>
             </nav>
           </div>
@@ -219,11 +227,11 @@ export default function LibraryPage() {
           </div>
           <div className="flex items-center gap-2 p-1 bg-white/[0.03] border border-white/5 rounded-2xl">
             {(["all", "reading", "finished", "unread"] as FilterTab[]).map((t) => (
-              <button 
-                key={t} 
-                onClick={() => setFilter(t)} 
+              <button
+                key={t}
+                onClick={() => setFilter(t)}
                 className={cn(
-                  "px-4 py-1.5 rounded-xl text-xs font-bold transition-all uppercase tracking-widest", 
+                  "px-4 py-1.5 rounded-xl text-xs font-bold transition-all uppercase tracking-widest",
                   filter === t ? "bg-white text-black shadow-lg" : "text-zinc-500 hover:text-zinc-300"
                 )}
               >
@@ -231,6 +239,16 @@ export default function LibraryPage() {
               </button>
             ))}
           </div>
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortOption)}
+            className="bg-white/[0.03] border border-white/5 rounded-xl px-3 py-1.5 text-xs text-zinc-400 font-medium focus:outline-none focus:border-primary/50"
+          >
+            <option value="created_at">Newest</option>
+            <option value="title">Title</option>
+            <option value="author">Author</option>
+            <option value="last_read">Last Read</option>
+          </select>
         </div>
 
         {/* Content Grid */}

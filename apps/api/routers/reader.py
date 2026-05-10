@@ -324,3 +324,40 @@ async def _get_book(book_id: str, user_id: str, db: AsyncSession) -> Book:
     if not book:
         raise HTTPException(404, "Book not found")
     return book
+
+
+@router.get("/{book_id}/search")
+async def search_book(
+    book_id: str,
+    q: str = Query(..., min_length=1, max_length=500),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Search within a single book for text matches."""
+    book = await _get_book(book_id, current_user.id, db)
+
+    if book.status != "ready":
+        raise HTTPException(202, "Book is still processing")
+
+    # Search in extracted text
+    pages = book.extracted_text.get("pages", [])
+    results = []
+    q_lower = q.lower()
+
+    for page in pages:
+        text = page.get("text", "")
+        if q_lower in text.lower():
+            # Find the context around the match
+            idx = text.lower().find(q_lower)
+            start = max(0, idx - 50)
+            end = min(len(text), idx + len(q) + 50)
+            excerpt = text[start:end]
+
+            results.append({
+                "page": page.get("page", 0),
+                "excerpt": f"...{excerpt}...",
+                "match_index": idx,
+            })
+
+    # Limit results
+    return {"query": q, "results": results[:20]}

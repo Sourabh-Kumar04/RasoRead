@@ -23,6 +23,9 @@ class UserOut(BaseModel):
     id: str
     email: str
     name: Optional[str]
+    avatar_url: Optional[str] = None
+    is_verified: bool = False
+    role: str = "user"
     created_at: datetime
     settings: dict
 
@@ -132,6 +135,7 @@ class NoteOut(BaseModel):
     page: Optional[int]
     content: str
     source: str
+    audio_url: Optional[str] = None
     created_at: datetime
 
     class Config:

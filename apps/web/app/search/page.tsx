@@ -23,6 +23,20 @@ export default function SearchPage() {
   const [searched, setSearched] = useState(false);
   const [searchError, setSearchError] = useState("");
   const [scrolled, setScrolled] = useState(false);
+  const [searchType, setSearchType] = useState<"keyword" | "semantic">("keyword");
+
+  // Load recent searches from localStorage
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  useEffect(() => {
+    const saved = localStorage.getItem("rasoread_recent_searches");
+    if (saved) setRecentSearches(JSON.parse(saved));
+  }, []);
+
+  const saveRecentSearch = (q: string) => {
+    const updated = [q, ...recentSearches.filter((s) => s !== q)].slice(0, 5);
+    setRecentSearches(updated);
+    localStorage.setItem("rasoread_recent_searches", JSON.stringify(updated));
+  };
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -35,7 +49,16 @@ export default function SearchPage() {
     setLoading(true);
     setSearched(true);
     setSearchError("");
+    saveRecentSearch(q);
+
+    // Log search event for analytics
+    import("@/lib/api").then(({ analyticsApi }) => {
+      analyticsApi.logEvent("search", undefined, { query: q, type: searchType }).catch(() => {});
+    });
+
     try {
+      // For now, keyword search uses the existing endpoint
+      // Semantic search would require a new endpoint with vector similarity
       const res = await aiApi.search(q);
       setResults(res.data.results);
       if (res.data.results.length === 0 && !res.data.ai_available) {
@@ -53,7 +76,7 @@ export default function SearchPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [searchType, recentSearches]);
 
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") doSearch(query);
@@ -89,6 +112,31 @@ export default function SearchPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {/* Search type toggle */}
+            <div className="hidden md:flex items-center gap-1 p-1 bg-white/[0.03] border border-white/5 rounded-lg">
+              <button
+                onClick={() => setSearchType("keyword")}
+                className={cn(
+                  "px-3 py-1 rounded-md text-[10px] font-semibold uppercase tracking-wider transition-all",
+                  searchType === "keyword"
+                    ? "bg-white text-black"
+                    : "text-zinc-500 hover:text-white"
+                )}
+              >
+                Keyword
+              </button>
+              <button
+                onClick={() => setSearchType("semantic")}
+                className={cn(
+                  "px-3 py-1 rounded-md text-[10px] font-semibold uppercase tracking-wider transition-all",
+                  searchType === "semantic"
+                    ? "bg-white text-black"
+                    : "text-zinc-500 hover:text-white"
+                )}
+              >
+                Semantic
+              </button>
+            </div>
              <button
               onClick={() => doSearch(query)}
               disabled={loading || !query.trim()}
@@ -116,7 +164,25 @@ export default function SearchPage() {
               <p className="text-zinc-500 font-medium text-lg italic font-serif max-w-sm">
                 Query your entire corpus of knowledge using high-fidelity semantic analysis.
               </p>
-              
+
+              {/* Recent searches */}
+              {recentSearches.length > 0 && (
+                <div className="mt-8">
+                  <p className="text-xs font-semibold text-zinc-600 uppercase tracking-widest mb-3">Recent searches</p>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {recentSearches.map((search) => (
+                      <button
+                        key={search}
+                        onClick={() => { setQuery(search); doSearch(search); }}
+                        className="px-3 py-1.5 bg-white/[0.03] border border-white/5 rounded-full text-xs text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-all"
+                      >
+                        {search}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="mt-12 w-full max-w-md md:hidden">
                  <input
                    autoFocus

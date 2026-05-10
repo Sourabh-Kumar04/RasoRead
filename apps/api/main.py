@@ -9,7 +9,7 @@ from core.database import engine, Base
 from core.logging import setup_logging
 from core.rate_limit import RateLimitMiddleware
 from core.exceptions import register_exception_handlers
-from routers import auth, books, reader, tts, ai, analytics, notes, health
+from routers import auth, books, reader, tts, ai, analytics, notes, health, admin, collections
 
 setup_logging()
 
@@ -64,6 +64,8 @@ app.include_router(tts.router,       prefix="/tts",       tags=["tts"])
 app.include_router(ai.router,        prefix="/ai",        tags=["ai"])
 app.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
 app.include_router(notes.router,     prefix="/notes",     tags=["notes"])
+app.include_router(collections.router, prefix="/collections", tags=["collections"])
+app.include_router(admin.router,    prefix="/admin",    tags=["admin"])
 
 
 app.include_router(health.router,    prefix="/health",    tags=["health"])

@@ -21,6 +21,9 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=True)
     password: Mapped[str] = mapped_column(Text, nullable=True)
+    avatar_url: Mapped[str] = mapped_column(Text, nullable=True)
+    is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    role: Mapped[str] = mapped_column(String(20), default="user")  # user | admin
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
     settings: Mapped[dict] = mapped_column(JSON, default=dict)
     # ── Streak tracking ───────────────────────────────────────────────────────
@@ -32,6 +35,7 @@ class User(Base):
     books: Mapped[list["Book"]] = relationship("Book", back_populates="user", cascade="all, delete-orphan")
     progress: Mapped[list["ReadingProgress"]] = relationship("ReadingProgress", back_populates="user", cascade="all, delete-orphan")
     book_settings: Mapped[list["UserBookSettings"]] = relationship("UserBookSettings", back_populates="user", cascade="all, delete-orphan")
+    collections: Mapped[list["Collection"]] = relationship("Collection", back_populates="user", cascade="all, delete-orphan")
 
 
 class Book(Base):
@@ -110,6 +114,7 @@ class Note(Base):
     start_char: Mapped[int] = mapped_column(Integer, nullable=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     source: Mapped[str] = mapped_column(String(20), default="typed")  # typed | voice
+    audio_url: Mapped[str] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
 
     book: Mapped["Book"] = relationship("Book", back_populates="notes")
@@ -162,3 +167,52 @@ class DocumentChunk(Base):
     embedding: Mapped[list[float]] = mapped_column(Vector(768), nullable=True)
 
     book: Mapped["Book"] = relationship("Book", back_populates="chunks")
+
+
+class VerificationToken(Base):
+    __tablename__ = "verification_tokens"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"))
+    token: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    token_type: Mapped[str] = mapped_column(String(20), nullable=False)  # verification | password_reset
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+
+class TokenDenylist(Base):
+    __tablename__ = "token_denylist"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    jti: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    token_type: Mapped[str] = mapped_column(String(20), nullable=False)  # access | refresh
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+
+class Collection(Base):
+    __tablename__ = "collections"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=True)
+    cover_color: Mapped[str] = mapped_column(String(20), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+    user: Mapped["User"] = relationship("User", back_populates="collections")
+    books: Mapped[list["CollectionBook"]] = relationship("CollectionBook", back_populates="collection", cascade="all, delete-orphan")
+
+
+class CollectionBook(Base):
+    __tablename__ = "collection_books"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    collection_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("collections.id", ondelete="CASCADE"))
+    book_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("books.id", ondelete="CASCADE"))
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+    collection: Mapped["Collection"] = relationship("Collection", back_populates="books")
+    book: Mapped["Book"] = relationship("Book")

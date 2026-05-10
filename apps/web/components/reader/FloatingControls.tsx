@@ -5,10 +5,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import {
   Play, Pause, ChevronLeft, ChevronRight, SkipForward, SkipBack,
-  Settings2, ChevronDown,
+  Settings2, ChevronDown, Moon, Clock, X,
 } from "lucide-react";
 import { useReaderStore } from "@/stores/readerStore";
 import { useTTSSync } from "@/hooks/useTTSSync";
+import { useEffect } from "react";
 
 interface FloatingControlsProps {
   tts: ReturnType<typeof useTTSSync>;
@@ -25,12 +26,39 @@ interface FloatingControlsProps {
 }
 
 const SPEEDS = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0];
+const SLEEP_TIMER_OPTIONS = [15, 30, 45, 60, 90];
 
 export function FloatingControls({ tts, onNextPage, onPrevPage, voices }: FloatingControlsProps) {
   const store = useReaderStore();
   const { play, pause, resume, seek } = tts;
   const [showSettings, setShowSettings] = useState(false);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
+  const [showSleepTimer, setShowSleepTimer] = useState(false);
+  const [timerRemaining, setTimerRemaining] = useState<number | null>(null);
+
+  // Timer countdown effect
+  useEffect(() => {
+    if (!store.sleepTimerEndTime) {
+      setTimerRemaining(null);
+      return;
+    }
+    const interval = setInterval(() => {
+      const remaining = Math.max(0, Math.floor((store.sleepTimerEndTime! - Date.now()) / 1000));
+      setTimerRemaining(remaining);
+      if (remaining === 0) {
+        pause();
+        store.clearSleepTimer();
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [store.sleepTimerEndTime, pause, store]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
   const speedIdx = Math.max(0, SPEEDS.indexOf(store.ttsSpeed));
 
   const togglePlay = () => {
@@ -361,6 +389,41 @@ export function FloatingControls({ tts, onNextPage, onPrevPage, voices }: Floati
                     >
                       {store.dyslexiaMode ? "Dyslexia on" : "Standard"}
                     </button>
+                  </div>
+                </div>
+
+                {/* Sleep Timer */}
+                <div className="space-y-2 col-span-2">
+                  <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest">
+                    Sleep Timer
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {store.sleepTimerMinutes ? (
+                      <div className="flex items-center gap-2 px-3 py-2 bg-indigo-500/10 border border-indigo-500/20 rounded-lg">
+                        <Moon size={14} className="text-indigo-400" />
+                        <span className="text-xs font-medium text-indigo-300">
+                          {timerRemaining !== null ? formatTime(timerRemaining) : `${store.sleepTimerMinutes} min`}
+                        </span>
+                        <button
+                          onClick={() => store.clearSleepTimer()}
+                          className="p-1 hover:bg-indigo-500/20 rounded"
+                        >
+                          <X size={12} className="text-indigo-400" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {SLEEP_TIMER_OPTIONS.map((mins) => (
+                          <button
+                            key={mins}
+                            onClick={() => store.setSleepTimer(mins)}
+                            className="px-3 py-1.5 text-xs font-medium bg-white/[0.04] border border-white/10 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.08] transition-all"
+                          >
+                            {mins}m
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 

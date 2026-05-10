@@ -56,6 +56,10 @@ export interface ReaderState {
   // Highlights
   highlights: { id: string; page: number; start_char: number; end_char: number; text: string; color: string }[];
 
+  // Sleep Timer
+  sleepTimerMinutes: number | null;
+  sleepTimerEndTime: number | null;
+
   // Actions
   setBook: (id: string, title: string, totalPages: number, toc: ReaderState["toc"]) => void;
   setPage: (page: number) => void;
@@ -79,6 +83,8 @@ export interface ReaderState {
   setAiQuestion: (q: string) => void;
   toggleViewMode: () => void;
   setViewMode: (mode: "original" | "text") => void;
+  setSleepTimer: (minutes: number | null) => void;
+  clearSleepTimer: () => void;
   reset: () => void;
 }
 
@@ -111,6 +117,8 @@ export const useReaderStore = create<ReaderState>()(
         aiQuestion: "",
         viewMode: "original",
         highlights: [],
+        sleepTimerMinutes: null,
+        sleepTimerEndTime: null,
 
         setBook: (id, title, totalPages, toc) =>
           set({ bookId: id, bookTitle: title, totalPages, toc }),
@@ -162,6 +170,16 @@ export const useReaderStore = create<ReaderState>()(
         setAiQuestion: (q) => set({ aiQuestion: q }),
         toggleViewMode: () => set((s) => ({ viewMode: s.viewMode === "original" ? "text" : "original" })),
         setViewMode: (mode) => set({ viewMode: mode }),
+
+        setSleepTimer: (minutes) => set({
+          sleepTimerMinutes: minutes,
+          sleepTimerEndTime: minutes ? Date.now() + minutes * 60 * 1000 : null
+        }),
+
+        clearSleepTimer: () => set({
+          sleepTimerMinutes: null,
+          sleepTimerEndTime: null
+        }),
 
         reset: () =>
           set({

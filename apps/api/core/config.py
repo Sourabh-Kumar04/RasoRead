@@ -56,6 +56,14 @@ class Settings(BaseSettings):
     # ElevenLabs (premium quality TTS)
     ELEVENLABS_API_KEY: str = ""
 
+    # ── Email ─────────────────────────────────────────────────────────────────
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = "noreply@rasoread.com"
+    SMTP_FROM_NAME: str = "RasoRead"
+
     # ── CORS ──────────────────────────────────────────────────────────────────
     ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:3001"]
 

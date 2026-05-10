@@ -102,6 +102,52 @@ async def delete_highlight(
     await db.commit()
 
 
+@router.patch("/highlights/{highlight_id}", response_model=HighlightOut)
+async def update_highlight(
+    highlight_id: str,
+    body: dict,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update highlight color or text."""
+    result = await db.execute(
+        select(Highlight).where(
+            Highlight.id == highlight_id,
+            Highlight.user_id == current_user.id,
+        )
+    )
+    h = result.scalar_one_or_none()
+    if not h:
+        raise HTTPException(404, "Highlight not found")
+
+    if "color" in body:
+        h.color = body["color"]
+    if "text" in body:
+        h.text = body["text"]
+
+    db.add(h)
+    await db.commit()
+    await db.refresh(h)
+    return h
+
+
+@router.get("/highlights")
+async def search_highlights(
+    q: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Search highlights by text content."""
+    from sqlalchemy import or_
+    result = await db.execute(
+        select(Highlight).where(
+            Highlight.user_id == current_user.id,
+            Highlight.text.ilike(f"%{q}%"),
+        ).order_by(Highlight.created_at.desc()).limit(50)
+    )
+    return result.scalars().all()
+
+
 # ── Notes ─────────────────────────────────────────────────────────────────────
 
 @router.get("/notes", response_model=list[NoteOut])
@@ -154,3 +200,29 @@ async def delete_note(
         raise HTTPException(404, "Note not found")
     await db.delete(note)
     await db.commit()
+
+
+@router.patch("/notes/{note_id}", response_model=NoteOut)
+async def update_note(
+    note_id: str,
+    body: dict,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update note content or audio URL."""
+    result = await db.execute(
+        select(Note).where(Note.id == note_id, Note.user_id == current_user.id)
+    )
+    note = result.scalar_one_or_none()
+    if not note:
+        raise HTTPException(404, "Note not found")
+
+    if "content" in body:
+        note.content = body["content"]
+    if "audio_url" in body:
+        note.audio_url = body["audio_url"]
+
+    db.add(note)
+    await db.commit()
+    await db.refresh(note)
+    return note
